@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="ja" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>問題集 進捗管理シート（化学 1〜383）</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Noto Sans JP & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Hiragino Kaku Gothic ProN"', '"Yu Gothic"', 'Meiryo', 'sans-serif'],
+            mono: ['"Inter"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* スプレッドシート風テーブルの基本スタイル */
+    :root {
+      --grid-border: #d4d4d8;
+      --sec-bg: #595959;
+      --sec-text: #ffffff;
+      --chap-bg-main: #cfcfcf;
+      --chap-bg-sub: #e6e6e6;
+      --chap-text: #111827;
+      --cell-bg: #ffffff;
+      --cell-text: #1f2937;
+      --cell-hover: #f3f4f6;
+      --thick-border: #111827;
+    }
+
+    html.dark {
+      --grid-border: #3f3f46;
+      --sec-bg: #27272a;
+      --sec-text: #f4f4f5;
+      --chap-bg-main: #3f3f46;
+      --chap-bg-sub: #323238;
+      --chap-text: #f4f4f5;
+      --cell-bg: #18181b;
+      --cell-text: #e4e4e7;
+      --cell-hover: #27272a;
+      --thick-border: #f4f4f5;
+    }
+
+    body {
+      font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* スプレッドシートグリッド構造 */
+    .sheet-table {
+      border-collapse: collapse;
+      table-layout: fixed;
+      width: 100%;
+    }
+
+    .sheet-table td {
+      border: 1px solid var(--grid-border);
+      height: 28px;
+      padding: 0;
+      font-size: 12.5px;
+      line-height: 1;
+      text-align: center;
+      vertical-align: middle;
+      background-color: var(--cell-bg);
+      color: var(--cell-text);
+      transition: background-color 0.08s ease, color 0.08s ease, opacity 0.15s ease;
+      position: relative;
+    }
+
+    @media (min-width: 1024px) {
+      .sheet-table td {
+        height: 27px;
+        font-size: 13px;
+      }
+    }
+
+    /* セクションヘッダー (§1 理論化学 など) */
+    .sheet-table td.sec-header {
+      background-color: var(--sec-bg);
+      color: var(--sec-text);
+      font-weight: 700;
+      text-align: left;
+      padding-left: 8px;
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+    }
+
+    /* 単元ヘッダー (1 物質の構成と化学結合 など) */
+    .sheet-table td.chap-title {
+      background-color: var(--chap-bg-main);
+      color: var(--chap-text);
+      font-weight: 700;
+      text-align: left;
+      padding-left: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sheet-table td.chap-sub {
+      background-color: var(--chap-bg-sub);
+      color: var(--chap-text);
+      font-size: 10.5px;
+      font-weight: 600;
+    }
+
+    /* 問題番号セル */
+    .sheet-table td.prob-cell {
+      cursor: pointer;
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      font-weight: 400;
+    }
+
+    .sheet-table td.prob-cell:hover {
+      box-shadow: inset 0 0 0 1.5px #3b82f6;
+      z-index: 2;
+    }
+
+    /* ステータス別カラー（ライト＆ダーク両対応） */
+    /* 1: 完了 (Complete) */
+    .sheet-table td.status-done {
+      background-color: #bbf7d0 !important;
+      color: #14532d !important;
+      font-weight: 600;
+    }
+    html.dark .sheet-table td.status-done {
+      background-color: #14532d !important;
+      color: #dcfce7 !important;
+    }
+
+    /* 2: 要復習 (Review Needed) */
+    .sheet-table td.status-review {
+      background-color: #fef08a !important;
+      color: #854d0e !important;
+      font-weight: 600;
+    }
+    html.dark .sheet-table td.status-review {
+      background-color: #713f12 !important;
+      color: #fef9c3 !important;
+    }
+
+    /* 3: 完璧・マスター (Mastered) */
+    .sheet-table td.status-master {
+      background-color: #60a5fa !important;
+      color: #ffffff !important;
+      font-weight: 700;
+    }
+    html.dark .sheet-table td.status-master {
+      background-color: #1d4ed8 !important;
+      color: #eff6ff !important;
+    }
+
+    /* フィルタリング時の減光表示 */
+    .sheet-table td.filtered-dim {
+      opacity: 0.18;
+    }
+    .sheet-table td.filtered-highlight {
+      box-shadow: inset 0 0 0 2px #ef4444;
+      z-index: 1;
+    }
+
+    /* 右下集計の太枠セル（画像の0.0%強調枠を忠実再現） */
+    .sheet-table td.thick-box {
+      border: 2px solid var(--thick-border) !important;
+      font-weight: 600;
+      z-index: 3;
+    }
+
+    /* 印刷用スタイル */
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background: #ffffff !important;
+      }
+      .sheet-wrapper {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-zinc-100 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 min-h-screen flex flex-col transition-colors duration-200">
+
+  <!-- 上部コントロールバー (no-print) -->
+  <header class="no-print sticky top-0 z-30 bg-white/95 dark:bg-zinc-900/95 backdrop-blur border-b border-zinc-200 dark:border-zinc-800 shadow-sm">
+    <div class="max-w-[1440px] mx-auto px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+      
+      <!-- タイトル & 総合プログレスバッジ -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-800 dark:bg-zinc-700 text-white font-bold text-sm shadow-sm">
+            化
+          </span>
+          <div>
+            <h1 id="appTitleDisplay" class="text-sm sm:text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100 leading-tight">
+              化学問題集 進捗管理表
+            </h1>
+            <p class="text-[11px] text-zinc-500 dark:text-zinc-400">
+              全<span id="headerTotalCount">383</span>問 ・ タップまたはドラッグで連続記録
+            </p>
+          </div>
+        </div>
+
+        <!-- リアルタイムミニ集計ピル -->
+        <div class="hidden md:flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800/90 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs">
+          <span class="font-medium text-zinc-500 dark:text-zinc-400">完了:</span>
+          <span id="topCompletedCount" class="font-bold text-zinc-900 dark:text-white text-sm">0</span>
+          <span class="text-zinc-400">/</span>
+          <span id="topTotalCount" class="text-zinc-600 dark:text-zinc-300">383</span>
+          <span id="topTotalRate" class="ml-1 px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-xs">0.0%</span>
+        </div>
+      </div>
+
+      <!-- 操作モード & ペイントパレット -->
+      <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <!-- モード切替セグメント -->
+        <div class="flex items-center bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs">
+          <button id="modeSimpleBtn" onclick="setInteractionMode('simple')" class="px-2.5 py-1 rounded-md font-medium transition-all bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white" title="タップで未完了⇔完了を切り替え">
+            シンプル
+          </button>
+          <button id="modeCycleBtn" onclick="setInteractionMode('cycle')" class="px-2.5 py-1 rounded-md font-medium transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900" title="タップで未着手→完了→要復習→完璧を順番に切り替え">
+            3段階切替
+          </button>
+          <button id="modePaintBtn" onclick="setInteractionMode('paint')" class="px-2.5 py-1 rounded-md font-medium transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900" title="選んだ色でなぞって連続塗り（iPad対応）">
+            ペイント塗り
+          </button>
+        </div>
+
+        <!-- ペイントパレット（常時表示でステータス凡例としても機能・クリックでペイントモードへ） -->
+        <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs">
+          <button onclick="selectBrush(1)" id="brushBtn1" class="brush-btn flex items-center gap-1 px-2 py-1 rounded-md font-medium border border-transparent hover:bg-white/60 dark:hover:bg-zinc-700/60 transition-all" title="完了（達成率にカウント）">
+            <span class="w-3 h-3 rounded-sm bg-[#bbf7d0] border border-emerald-500 inline-block"></span>
+            <span>完了</span>
+            <span id="badgeCount1" class="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">(0)</span>
+          </button>
+          <button onclick="selectBrush(2)" id="brushBtn2" class="brush-btn flex items-center gap-1 px-2 py-1 rounded-md font-medium border border-transparent hover:bg-white/60 dark:hover:bg-zinc-700/60 transition-all" title="要復習（間違えた問題・後で見直す問題）">
+            <span class="w-3 h-3 rounded-sm bg-[#fef08a] border border-amber-500 inline-block"></span>
+            <span>要復習</span>
+            <span id="badgeCount2" class="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">(0)</span>
+          </button>
+          <button onclick="selectBrush(3)" id="brushBtn3" class="brush-btn flex items-center gap-1 px-2 py-1 rounded-md font-medium border border-transparent hover:bg-white/60 dark:hover:bg-zinc-700/60 transition-all" title="完璧（自力で即答できる問題・達成率にカウント）">
+            <span class="w-3 h-3 rounded-sm bg-[#60a5fa] border border-blue-600 inline-block"></span>
+            <span>完璧</span>
+            <span id="badgeCount3" class="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">(0)</span>
+          </button>
+          <button onclick="selectBrush(0)" id="brushBtn0" class="brush-btn flex items-center gap-1 px-2 py-1 rounded-md font-medium border border-transparent hover:bg-white/60 dark:hover:bg-zinc-700/60 transition-all" title="未着手に戻す（消しゴム）">
+            <span class="w-3 h-3 rounded-sm bg-white dark:bg-zinc-900 border border-zinc-400 inline-block"></span>
+            <span class="hidden sm:inline">消去</span>
+          </button>
+        </div>
+
+        <!-- フィルタ選択 -->
+        <select id="filterSelect" onchange="setFilterMode(this.value)" aria-label="表示フィルタ" class="bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-medium rounded-lg px-2.5 py-1.5 text-zinc-800 dark:text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="all">すべて表示</option>
+          <option value="incomplete">未完了のみ強調</option>
+          <option value="review">要復習のみ強調</option>
+          <option value="completed">完了・完璧のみ強調</option>
+        </select>
+
+        <!-- 単元ミニ達成率の表示切替 -->
+        <button id="toggleChapRateBtn" onclick="toggleChapterRateDisplay()" class="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium text-zinc-700 dark:text-zinc-200 transition-colors" title="各単元ヘッダー右側のミニ達成率表示を切り替え">
+          単元率: ON
+        </button>
+
+        <!-- カスタマイズ・データ管理・テーマ切替 -->
+        <button onclick="openCustomizeModal()" class="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-1 transition-colors" title="単元や問題番号の範囲を編集">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          <span class="hidden sm:inline">構成編集</span>
+        </button>
+
+        <button onclick="openDataModal()" class="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-xs font-medium text-zinc-700 dark:text-zinc-200 flex items-center gap-1 transition-colors" title="JSON保存・読込・リセット">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+          <span class="hidden sm:inline">保存/読込</span>
+        </button>
+
+        <button onclick="toggleTheme()" id="themeToggleBtn" class="p-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition-colors" title="ライトモード / ダークモード切替">
+          <svg id="themeIconSun" class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <svg id="themeIconMoon" class="w-4 h-4 block dark:hidden text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 視覚的プログレスバー (全体 & 分野別) -->
+    <div class="bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200/80 dark:border-zinc-800 px-3 sm:px-5 py-1.5">
+      <div class="max-w-[1440px] mx-auto grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 items-center text-xs">
+        <!-- 全体 -->
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-zinc-700 dark:text-zinc-300 w-10 shrink-0">全体</span>
+          <div class="flex-1 h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden flex">
+            <div id="barTotalMaster" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
+            <div id="barTotalDone" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+            <div id="barTotalReview" class="bg-amber-400 h-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <span id="barTextTotal" class="font-mono font-bold text-zinc-800 dark:text-zinc-200 w-11 text-right">0.0%</span>
+        </div>
+        <!-- 理論 -->
+        <div class="flex items-center gap-2">
+          <span id="barLabelSec0" class="font-medium text-zinc-600 dark:text-zinc-400 truncate max-w-[4.5rem] shrink-0">理論</span>
+          <div class="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+            <div id="barSec0" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <span id="barTextSec0" class="font-mono font-semibold text-zinc-700 dark:text-zinc-300 w-11 text-right">0.0%</span>
+        </div>
+        <!-- 無機 -->
+        <div class="flex items-center gap-2">
+          <span id="barLabelSec1" class="font-medium text-zinc-600 dark:text-zinc-400 truncate max-w-[4.5rem] shrink-0">無機</span>
+          <div class="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+            <div id="barSec1" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <span id="barTextSec1" class="font-mono font-semibold text-zinc-700 dark:text-zinc-300 w-11 text-right">0.0%</span>
+        </div>
+        <!-- 有機 -->
+        <div class="flex items-center gap-2">
+          <span id="barLabelSec2" class="font-medium text-zinc-600 dark:text-zinc-400 truncate max-w-[4.5rem] shrink-0">有機</span>
+          <div class="flex-1 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+            <div id="barSec2" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <span id="barTextSec2" class="font-mono font-semibold text-zinc-700 dark:text-zinc-300 w-11 text-right">0.0%</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- メイン：スプレッドシート再現エリア -->
+  <main class="flex-1 max-w-[1440px] w-full mx-auto p-2 sm:p-4 md:p-6">
+    <div class="sheet-wrapper bg-white dark:bg-zinc-900 shadow-md rounded-sm border border-zinc-300 dark:border-zinc-700 p-2 sm:p-4 overflow-x-auto">
+      
+      <!-- 2カラム・スプレッドシートレイアウト（画像と同じ左右2列＋中央1列スペーサー構成） -->
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_28px_1fr] gap-y-6 lg:gap-y-0 min-w-[340px]">
+        
+        <!-- 左カラム (§1 理論化学 1〜191) -->
+        <div>
+          <table class="sheet-table" id="leftSheetTable">
+            <colgroup>
+              <col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]">
+              <col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]">
+            </colgroup>
+            <tbody id="leftTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 中央の空白セパレータ列（PC・横向きiPad表示時にスプレッドシートの中央空白列を再現） -->
+        <div class="hidden lg:block">
+          <table class="sheet-table h-full">
+            <tbody id="centerSpacerBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 右カラム (§2 無機化学 192〜243 / §3 有機化学 244〜383 / 右下集計テーブル) -->
+        <div>
+          <table class="sheet-table" id="rightSheetTable">
+            <colgroup>
+              <col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]">
+              <col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]"><col class="w-[10%]">
+            </colgroup>
+            <tbody id="rightTableBody"></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 下部補足ガイド (no-print) -->
+    <div class="no-print mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400 px-1">
+      <div class="flex flex-wrap items-center gap-4">
+        <span>💡 <strong>ヒント:</strong> 単元名の行をクリックすると、その単元を一括で「完了 / 未着手」に切り替えられます。</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="window.print()" class="hover:text-zinc-800 dark:hover:text-zinc-200 underline">印刷 / PDF出力</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- モーダル1：問題集カスタマイズ（セクション・単元・番号範囲の編集） -->
+  <div id="customizeModal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">問題集の構成カスタマイズ</h2>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">他の問題集や科目に合わせて、セクション名・単元名・開始〜終了番号を自由に編集できます。</p>
+        </div>
+        <button onclick="closeCustomizeModal()" class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-5 flex-1 text-xs sm:text-sm">
+        <!-- シートタイトル -->
+        <div>
+          <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">問題集タイトル</label>
+          <input type="text" id="editAppTitle" class="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <!-- セクション一覧編集コンテナ -->
+        <div id="sectionsEditorContainer" class="space-y-6"></div>
+
+        <div class="pt-2">
+          <button onclick="addSectionInEditor()" class="px-3 py-2 rounded-lg border border-dashed border-zinc-400 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 font-medium text-xs flex items-center gap-1.5">
+            <span>＋ 新しい大項目（§セクション）を追加</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="px-5 py-3.5 bg-zinc-50 dark:bg-zinc-800/60 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+        <button onclick="resetStructureToDefault()" class="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium">
+          初期データ（化学 1〜383）に戻す
+        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="closeCustomizeModal()" class="px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-xs font-medium">
+            キャンセル
+          </button>
+          <button onclick="saveCustomizedStructure()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm">
+            構成を保存して反映
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- モーダル2：データ保存・バックアップ（JSONエクスポート/インポート・初期化） -->
+  <div id="dataModal" class="fixed inset-0 z-50 hidden bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+        <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100">データ管理・バックアップ</h2>
+        <button onclick="closeDataModal()" class="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-5 text-xs sm:text-sm">
+        <!-- JSON書き出し -->
+        <div class="p-4 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-2">
+          <h3 class="font-bold text-zinc-900 dark:text-zinc-100">バックアップを保存（JSONエクスポート）</h3>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">現在の進捗状況と問題集の構成をJSONファイルとして端末にダウンロードします。iPadとPC間のデータ移行にも使えます。</p>
+          <button onclick="exportDataJson()" class="mt-1 px-4 py-2 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold text-xs hover:opacity-90 transition-opacity">
+            JSONファイルをダウンロード
+          </button>
+        </div>
+
+        <!-- JSON読み込み -->
+        <div class="p-4 rounded-lg bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-2">
+          <h3 class="font-bold text-zinc-900 dark:text-zinc-100">バックアップを復元（JSONインポート）</h3>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400">保存したJSONファイルを選択して進捗データを復元します。</p>
+          <input type="file" id="importJsonInput" accept=".json,application/json" onchange="importDataJson(event)" class="block w-full text-xs text-zinc-600 dark:text-zinc-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-950 dark:file:text-blue-300 hover:file:bg-blue-100 cursor-pointer">
+        </div>
+
+        <!-- 進捗リセット -->
+        <div class="p-4 rounded-lg bg-red-50/70 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 space-y-2">
+          <h3 class="font-bold text-red-700 dark:text-red-400">進捗状況のリセット</h3>
+          <p class="text-xs text-red-600/80 dark:text-red-300/80">すべての問題番号を「未着手（0.0%）」に戻します。</p>
+          <div id="resetConfirmArea" class="pt-1">
+            <button onclick="showResetConfirm()" class="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs">
+              進捗をすべてリセットする
+            </button>
+          </div>
+          <div id="resetConfirmStep2" class="hidden pt-1 flex items-center gap-2">
+            <span class="text-xs font-bold text-red-700 dark:text-red-300">本当に初期化しますか？</span>
+            <button onclick="executeResetProgress()" class="px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold text-xs">はい、初期化する</button>
+            <button onclick="hideResetConfirm()" class="px-3 py-1.5 rounded-lg bg-zinc-200 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 単元一括変更の確認トースト/ミニモーダル -->
+  <div id="chapterBatchModal" class="fixed inset-0 z-50 hidden bg-black/40 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl max-w-sm w-full p-5 space-y-4">
+      <div>
+        <h3 id="batchModalTitle" class="text-sm font-bold text-zinc-900 dark:text-zinc-100">単元の一括変更</h3>
+        <p id="batchModalSub" class="text-xs text-zinc-500 dark:text-zinc-400 mt-1">この単元の問題をまとめて変更します。</p>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+        <button onclick="applyChapterBatch(1)" class="py-2 px-3 rounded-lg bg-[#bbf7d0] text-[#14532d] hover:opacity-90">すべて「完了」にする</button>
+        <button onclick="applyChapterBatch(3)" class="py-2 px-3 rounded-lg bg-[#60a5fa] text-white hover:opacity-90">すべて「完璧」にする</button>
+        <button onclick="applyChapterBatch(2)" class="py-2 px-3 rounded-lg bg-[#fef08a] text-[#854d0e] hover:opacity-90">すべて「要復習」にする</button>
+        <button onclick="applyChapterBatch(0)" class="py-2 px-3 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700 hover:opacity-90">すべて「未着手」に戻す</button>
+      </div>
+      <div class="text-right">
+        <button onclick="closeChapterBatchModal()" class="px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toastNotice" class="fixed bottom-4 right-4 z-50 hidden px-4 py-2.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold shadow-lg transition-all"></div>
+
+  <script>
+    /**
+     * 初期データ構造：画像の化学問題集（全383問：§1 理論化学 1〜191、§2 無機化学 192〜243、§3 有機化学 244〜383）
+     */
+    const DEFAULT_WORKBOOK = {
+      title: '化学問題集 進捗管理表',
+      sections: [
+        {
+          id: 'sec1',
+          title: '§1 理論化学',
+          shortName: '理論',
+          column: 'left',
+          spacerBefore: false,
+          chapters: [
+            { id: 'c1', title: '1 物質の構成と化学結合', start: 1, end: 30 },
+            { id: 'c2', title: '2 物質量と化学反応式', start: 31, end: 45 },
+            { id: 'c3', title: '3 物質の三態と状態変化', start: 46, end: 48 },
+            { id: 'c4', title: '4 気体の法則', start: 49, end: 63 },
+            { id: 'c5', title: '5 溶液の性質', start: 64, end: 88 },
+            { id: 'c6', title: '6 化学反応と熱・光', start: 89, end: 102 },
+            { id: 'c7', title: '7 反応の速さ', start: 103, end: 112 },
+            { id: 'c8', title: '8 化学平衡', start: 113, end: 129 },
+            { id: 'c9', title: '9 酸と塩基の反応', start: 130, end: 142 },
+            { id: 'c10', title: '10 電離平衡', start: 143, end: 159 },
+            { id: 'c11', title: '11 酸化還元反応', start: 160, end: 169 },
+            { id: 'c12', title: '12 電池と電気分解', start: 170, end: 191 }
+          ]
+        },
+        {
+          id: 'sec2',
+          title: '§2 無機化学',
+          shortName: '無機',
+          column: 'right',
+          spacerBefore: false,
+          chapters: [
+            { id: 'c13', title: '13 非金属とその化合物', start: 192, end: 212 },
+            { id: 'c14', title: '14 金属とその化合物', start: 213, end: 233 },
+            { id: 'c15', title: '15 無機化学総合', start: 234, end: 243 }
+          ]
+        },
+        {
+          id: 'sec3',
+          title: '§3 有機化学',
+          shortName: '有機',
+          column: 'right',
+          spacerBefore: true, // 画像の234〜243と§3有機化学の間の1行空白を忠実再現
+          chapters: [
+            { id: 'c16', title: '16 脂肪族化合物', start: 244, end: 273 },
+            { id: 'c17', title: '17 芳香族化合物', start: 274, end: 324 },
+            { id: 'c18', title: '18 天然高分子化合物', start: 325, end: 364 },
+            { id: 'c19', title: '19 合成高分子化合物', start: 365, end: 383 }
+          ]
+        }
+      ]
+    };
+
+    const STORAGE_KEY_STATE = 'chem_workbook_tracker_state_v1';
+    const STORAGE_KEY_CONFIG = 'chem_workbook_tracker_config_v1';
+    const STORAGE_KEY_SETTINGS = 'chem_workbook_tracker_settings_v1';
+
+    // アプリケーション状態
+    let workbookConfig = JSON.parse(JSON.stringify(DEFAULT_WORKBOOK));
+    // statusMap: { [problemNumber]: 0(未着手) | 1(完了) | 2(要復習) | 3(完璧) }
+    let statusMap = {};
+    let appSettings = {
+      interactionMode: 'simple', // 'simple' | 'cycle' | 'paint'
+      selectedBrush: 1,          // 0 | 1 | 2 | 3
+      filterMode: 'all',         // 'all' | 'incomplete' | 'review' | 'completed'
+      showChapterRate: true,
+      darkMode: false
+    };
+
+    // ドラッグ/スワイプ連続塗り用の状態変数
+    let isPointerDown = false;
+    let activePaintStatus = null;
+    let lastTouchedProb = null;
+    let pendingBatchChapter = null;
+    let editingWorkbookTemp = null;
+
+    /**
+     * 初期化処理
+     */
+    function initApp() {
+      loadFromStorage();
+      applyThemeUI();
+      updateModeButtonsUI();
+      updateBrushButtonsUI();
+      updateChapterRateButtonUI();
+      renderSheet();
+      setupGlobalPointerEvents();
+    }
+
+    /**
+     * localStorageからのデータ読込
+     */
+    function loadFromStorage() {
+      try {
+        const savedConfig = localStorage.getItem(STORAGE_KEY_CONFIG);
+        if (savedConfig) {
+          const parsed = JSON.parse(savedConfig);
+          if (parsed && Array.isArray(parsed.sections)) {
+            workbookConfig = parsed;
+          }
+        }
+        const savedState = localStorage.getItem(STORAGE_KEY_STATE);
+        if (savedState) {
+          statusMap = JSON.parse(savedState) || {};
+        }
+        const savedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+        if (savedSettings) {
+          appSettings = { ...appSettings, ...JSON.parse(savedSettings) };
+        }
+      } catch (e) {
+        console.warn('データの読み込みに失敗しました:', e);
+      }
+    }
+
+    /**
+     * localStorageへの保存
+     */
+    function saveStateToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY_STATE, JSON.stringify(statusMap));
+      } catch (e) {
+        console.warn('状態の保存に失敗しました:', e);
+      }
+    }
+
+    function saveConfigToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(workbookConfig));
+      } catch (e) {
+        console.warn('構成の保存に失敗しました:', e);
+      }
+    }
+
+    function saveSettingsToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(appSettings));
+      } catch (e) {
+        console.warn('設定の保存に失敗しました:', e);
+      }
+    }
+
+    /**
+     * 10列空行のHTML生成ヘルパー
+     */
+    function createEmptyRowHTML() {
+      let cells = '';
+      for (let i = 0; i < 10; i++) {
+        cells += '<td></td>';
+      }
+      return `<tr>${cells}</tr>`;
+    }
+
+    /**
+     * セクション群からテーブル行HTML配列を生成
+     */
+    function buildColumnRowsHTML(sections) {
+      const rows = [];
+
+      sections.forEach((sec) => {
+        if (sec.spacerBefore) {
+          rows.push(createEmptyRowHTML());
+        }
+
+        // セクションヘッダー行 (§1 理論化学 など)
+        rows.push(`<tr><td colspan="10" class="sec-header">${escapeHtml(sec.title)}</td></tr>`);
+
+        // 各単元
+        sec.chapters.forEach((chap) => {
+          const start = parseInt(chap.start, 10);
+          const end = parseInt(chap.end, 10);
+
+          // 単元ヘッダー行：画像の通り 1〜4列目が濃グレー単元名、5列目が薄グレー、6〜10列目が通常白セル
+          let chapRow = `<tr class="cursor-pointer group" onclick="openChapterBatchModal('${escapeHtml(chap.id)}')" title="クリックでこの単元を一括変更">`;
+          chapRow += `<td colspan="4" class="chap-title group-hover:underline">${escapeHtml(chap.title)}</td>`;
+          chapRow += `<td class="chap-sub" id="chapRate_${escapeHtml(chap.id)}"></td>`;
+          for (let c = 0; c < 5; c++) {
+            chapRow += `<td></td>`;
+          }
+          chapRow += `</tr>`;
+          rows.push(chapRow);
+
+          // 問題番号を10列ずつ配置し、余りは空白セルで10列に揃える
+          if (!isNaN(start) && !isNaN(end) && end >= start) {
+            const count = end - start + 1;
+            const totalGridCells = Math.ceil(count / 10) * 10;
+            let currentCells = '';
+
+            for (let i = 0; i < totalGridCells; i++) {
+              const num = start + i;
+              if (num <= end) {
+                currentCells += `<td class="prob-cell" data-prob="${num}" id="cell_${num}">${num}</td>`;
+              } else {
+                currentCells += `<td></td>`;
+              }
+
+              if ((i + 1) % 10 === 0) {
+                rows.push(`<tr>${currentCells}</tr>`);
+                currentCells = '';
+              }
+            }
+          }
+        });
+      });
+
+      return rows;
+    }
+
+    /**
+     * 右下集計テーブル（画像と同じ配置）の行HTML配列を生成
+     */
+    function buildSummaryRowsHTML() {
+      const rows = [];
+
+      // 1行目：空白行
+      rows.push(createEmptyRowHTML());
+
+      // 2行目：完了 | 0 | 0.0% (太枠) | 空白×7
+      rows.push(`
+        <tr>
+          <td class="font-medium">完了</td>
+          <td id="sheetDoneCount" class="font-mono">0</td>
+          <td id="sheetTotalRate" class="thick-box font-mono">0.0%</td>
+          <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        </tr>
+      `);
+
+      // 3行目：空白行
+      rows.push(createEmptyRowHTML());
+
+      // 4行目：理論 | 0.0% | 空白 | 無機 | 0.0% | 空白 | 有機 | 0.0% | 空白×2
+      const sec0Name = workbookConfig.sections[0] ? workbookConfig.sections[0].shortName || '理論' : '理論';
+      const sec1Name = workbookConfig.sections[1] ? workbookConfig.sections[1].shortName || '無機' : '無機';
+      const sec2Name = workbookConfig.sections[2] ? workbookConfig.sections[2].shortName || '有機' : '有機';
+
+      rows.push(`
+        <tr>
+          <td id="sheetSecName0" class="font-medium truncate px-0.5">${escapeHtml(sec0Name)}</td>
+          <td id="sheetSecRate0" class="font-mono">0.0%</td>
+          <td></td>
+          <td id="sheetSecName1" class="font-medium truncate px-0.5">${escapeHtml(sec1Name)}</td>
+          <td id="sheetSecRate1" class="font-mono">0.0%</td>
+          <td></td>
+          <td id="sheetSecName2" class="font-medium truncate px-0.5">${escapeHtml(sec2Name)}</td>
+          <td id="sheetSecRate2" class="font-mono">0.0%</td>
+          <td></td>
+          <td></td>
+        </tr>
+      `);
+
+      return rows;
+    }
+
+    /**
+     * スプレッドシート全体の描画
+     */
+    function renderSheet() {
+      document.getElementById('appTitleDisplay').textContent = workbookConfig.title || '化学問題集 進捗管理表';
+
+      const leftSections = workbookConfig.sections.filter(s => s.column === 'left');
+      const rightSections = workbookConfig.sections.filter(s => s.column !== 'left');
+
+      const leftRows = buildColumnRowsHTML(leftSections);
+      const rightRows = buildColumnRowsHTML(rightSections).concat(buildSummaryRowsHTML());
+
+      // 左右の行数を揃えて画像の37行×2カラムのような美しいグリッドに整える
+      const maxRows = Math.max(leftRows.length, rightRows.length);
+      while (leftRows.length < maxRows) {
+        leftRows.push(createEmptyRowHTML());
+      }
+      while (rightRows.length < maxRows) {
+        rightRows.push(createEmptyRowHTML());
+      }
+
+      document.getElementById('leftTableBody').innerHTML = leftRows.join('');
+      document.getElementById('rightTableBody').innerHTML = rightRows.join('');
+
+      // 中央セパレータ列も同じ行数だけ生成
+      const centerRows = [];
+      for (let i = 0; i < maxRows; i++) {
+        centerRows.push('<tr><td></td></tr>');
+      }
+      document.getElementById('centerSpacerBody').innerHTML = centerRows.join('');
+
+      // すべての問題セルの見た目を更新し、集計を計算
+      refreshAllCellsAndStats();
+    }
+
+    /**
+     * 全セルのステータス装飾およびリアルタイム集計更新
+     */
+    function refreshAllCellsAndStats() {
+      let totalProblems = 0;
+      let totalCompleted = 0; // ステータス 1(完了) または 3(完璧)
+      let countDone = 0;      // 1: 完了
+      let countReview = 0;    // 2: 要復習
+      let countMaster = 0;    // 3: 完璧
+
+      const sectionStats = workbookConfig.sections.map((sec) => {
+        let secTotal = 0;
+        let secCompleted = 0;
+
+        sec.chapters.forEach((chap) => {
+          const start = parseInt(chap.start, 10);
+          const end = parseInt(chap.end, 10);
+          let chapTotal = 0;
+          let chapCompleted = 0;
+
+          if (!isNaN(start) && !isNaN(end) && end >= start) {
+            for (let num = start; num <= end; num++) {
+              const st = statusMap[num] || 0;
+              chapTotal++;
+              secTotal++;
+              totalProblems++;
+
+              if (st === 1) {
+                countDone++;
+                chapCompleted++;
+                secCompleted++;
+                totalCompleted++;
+              } else if (st === 2) {
+                countReview++;
+              } else if (st === 3) {
+                countMaster++;
+                chapCompleted++;
+                secCompleted++;
+                totalCompleted++;
+              }
+
+              // セルDOMのクラス更新
+              updateSingleCellDOM(num, st);
+            }
+          }
+
+          // 単元ごとのミニ達成率表示
+          const chapRateEl = document.getElementById(`chapRate_${chap.id}`);
+          if (chapRateEl) {
+            if (appSettings.showChapterRate && chapTotal > 0) {
+              const pct = Math.round((chapCompleted / chapTotal) * 100);
+              chapRateEl.textContent = `${pct}%`;
+              chapRateEl.className = pct === 100
+                ? 'chap-sub !text-emerald-700 dark:!text-emerald-300 font-bold'
+                : 'chap-sub text-zinc-600 dark:text-zinc-300';
+            } else {
+              chapRateEl.textContent = '';
+              chapRateEl.className = 'chap-sub';
+            }
+          }
+        });
+
+        const secRate = secTotal > 0 ? ((secCompleted / secTotal) * 100).toFixed(1) : '0.0';
+        return {
+          shortName: sec.shortName || sec.title,
+          total: secTotal,
+          completed: secCompleted,
+          rateStr: `${secRate}%`,
+          rateNum: secTotal > 0 ? (secCompleted / secTotal) * 100 : 0
+        };
+      });
+
+      const overallRateStr = totalProblems > 0
+        ? `${((totalCompleted / totalProblems) * 100).toFixed(1)}%`
+        : '0.0%';
+
+      // 1. スプレッドシート右下の集計セルを更新
+      const sheetDoneEl = document.getElementById('sheetDoneCount');
+      const sheetTotalRateEl = document.getElementById('sheetTotalRate');
+      if (sheetDoneEl) sheetDoneEl.textContent = totalCompleted;
+      if (sheetTotalRateEl) sheetTotalRateEl.textContent = overallRateStr;
+
+      for (let i = 0; i < 3; i++) {
+        const nameEl = document.getElementById(`sheetSecName${i}`);
+        const rateEl = document.getElementById(`sheetSecRate${i}`);
+        if (sectionStats[i]) {
+          if (nameEl) nameEl.textContent = sectionStats[i].shortName;
+          if (rateEl) rateEl.textContent = sectionStats[i].rateStr;
+        } else {
+          if (nameEl) nameEl.textContent = '';
+          if (rateEl) rateEl.textContent = '';
+        }
+      }
+
+      // 2. ヘッダーおよび上部プログレスバーを更新
+      document.getElementById('headerTotalCount').textContent = totalProblems;
+      document.getElementById('topCompletedCount').textContent = totalCompleted;
+      document.getElementById('topTotalCount').textContent = totalProblems;
+      document.getElementById('topTotalRate').textContent = overallRateStr;
+
+      document.getElementById('badgeCount1').textContent = `(${countDone})`;
+      document.getElementById('badgeCount2').textContent = `(${countReview})`;
+      document.getElementById('badgeCount3').textContent = `(${countMaster})`;
+
+      const masterPct = totalProblems > 0 ? (countMaster / totalProblems) * 100 : 0;
+      const donePct = totalProblems > 0 ? (countDone / totalProblems) * 100 : 0;
+      const reviewPct = totalProblems > 0 ? (countReview / totalProblems) * 100 : 0;
+
+      document.getElementById('barTotalMaster').style.width = `${masterPct}%`;
+      document.getElementById('barTotalDone').style.width = `${donePct}%`;
+      document.getElementById('barTotalReview').style.width = `${reviewPct}%`;
+      document.getElementById('barTextTotal').textContent = overallRateStr;
+
+      for (let i = 0; i < 3; i++) {
+        const labelEl = document.getElementById(`barLabelSec${i}`);
+        const barEl = document.getElementById(`barSec${i}`);
+        const textEl = document.getElementById(`barTextSec${i}`);
+        if (sectionStats[i]) {
+          if (labelEl) labelEl.textContent = sectionStats[i].shortName;
+          if (barEl) barEl.style.width = `${sectionStats[i].rateNum}%`;
+          if (textEl) textEl.textContent = sectionStats[i].rateStr;
+        }
+      }
+    }
+
+    /**
+     * 単一セルのDOMクラスとフィルタ状態を更新
+     */
+    function updateSingleCellDOM(probNum, status) {
+      const cell = document.getElementById(`cell_${probNum}`);
+      if (!cell) return;
+
+      cell.classList.remove(
+        'status-done',
+        'status-review',
+        'status-master',
+        'filtered-dim',
+        'filtered-highlight'
+      );
+
+      if (status === 1) cell.classList.add('status-done');
+      else if (status === 2) cell.classList.add('status-review');
+      else if (status === 3) cell.classList.add('status-master');
+
+      // フィルタ適用
+      const filter = appSettings.filterMode;
+      if (filter === 'incomplete') {
+        if (status === 1 || status === 3) {
+          cell.classList.add('filtered-dim');
+        }
+      } else if (filter === 'review') {
+        if (status === 2) {
+          cell.classList.add('filtered-highlight');
+        } else {
+          cell.classList.add('filtered-dim');
+        }
+      } else if (filter === 'completed') {
+        if (status !== 1 && status !== 3) {
+          cell.classList.add('filtered-dim');
+        }
+      }
+    }
+
+    /**
+     * セル操作（タップ＆ドラッグ連続塗り）のイベント設定
+     */
+    function setupGlobalPointerEvents() {
+      const mainArea = document.querySelector('main');
+
+      // マウス操作
+      mainArea.addEventListener('mousedown', (e) => {
+        const cell = e.target.closest('td.prob-cell');
+        if (!cell) return;
+        e.preventDefault();
+        const prob = parseInt(cell.dataset.prob, 10);
+        startCellInteraction(prob);
+      });
+
+      mainArea.addEventListener('mouseover', (e) => {
+        if (!isPointerDown) return;
+        const cell = e.target.closest('td.prob-cell');
+        if (!cell) return;
+        const prob = parseInt(cell.dataset.prob, 10);
+        continueCellInteraction(prob);
+      });
+
+      window.addEventListener('mouseup', () => {
+        isPointerDown = false;
+        activePaintStatus = null;
+        lastTouchedProb = null;
+      });
+
+      // タッチ操作（iPad等でペイントモード時にドラッグで連続塗り可能）
+      mainArea.addEventListener('touchstart', (e) => {
+        const cell = e.target.closest('td.prob-cell');
+        if (!cell) return;
+        if (appSettings.interactionMode === 'paint') {
+          const prob = parseInt(cell.dataset.prob, 10);
+          startCellInteraction(prob);
+        }
+      }, { passive: true });
+
+      mainArea.addEventListener('touchmove', (e) => {
+        if (appSettings.interactionMode !== 'paint' || !isPointerDown) return;
+        const touch = e.touches[0];
+        if (!touch) return;
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (!el) return;
+        const cell = el.closest('td.prob-cell');
+        if (cell) {
+          e.preventDefault(); // ペイント中は画面スクロールを抑止して快適になぞれるようにする
+          const prob = parseInt(cell.dataset.prob, 10);
+          continueCellInteraction(prob);
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchend', () => {
+        isPointerDown = false;
+        activePaintStatus = null;
+        lastTouchedProb = null;
+      });
+    }
+
+    /**
+     * セルへの最初のタップ/クリック時の処理
+     */
+    function startCellInteraction(probNum) {
+      if (isNaN(probNum)) return;
+      isPointerDown = true;
+      lastTouchedProb = probNum;
+
+      const current = statusMap[probNum] || 0;
+      let nextStatus = 0;
+
+      if (appSettings.interactionMode === 'simple') {
+        // シンプル（未完了 ⇔ 完了）
+        nextStatus = (current === 1 || current === 3) ? 0 : 1;
+      } else if (appSettings.interactionMode === 'cycle') {
+        // 3段階切替（未着手(0) → 完了(1) → 要復習(2) → 完璧(3) → 未着手(0)）
+        nextStatus = (current + 1) % 4;
+      } else {
+        // ペイントモード：選択中のブラシと同じなら消去、違えばそのブラシ色で塗る
+        nextStatus = current === appSettings.selectedBrush ? 0 : appSettings.selectedBrush;
+      }
+
+      activePaintStatus = nextStatus;
+      setProblemStatus(probNum, nextStatus);
+    }
+
+    /**
+     * ドラッグ中に別のセルを通過した際の処理
+     */
+    function continueCellInteraction(probNum) {
+      if (!isPointerDown || isNaN(probNum) || probNum === lastTouchedProb) return;
+      lastTouchedProb = probNum;
+      if (activePaintStatus !== null) {
+        setProblemStatus(probNum, activePaintStatus);
+      }
+    }
+
+    /**
+     * 問題ステータスの更新と保存
+     */
+    function setProblemStatus(probNum, status) {
+      if (status === 0) {
+        delete statusMap[probNum];
+      } else {
+        statusMap[probNum] = status;
+      }
+      saveStateToStorage();
+      refreshAllCellsAndStats();
+    }
+
+    /**
+     * 操作モードの切り替え
+     */
+    function setInteractionMode(mode) {
+      appSettings.interactionMode = mode;
+      saveSettingsToStorage();
+      updateModeButtonsUI();
+      updateBrushButtonsUI();
+    }
+
+    function updateModeButtonsUI() {
+      const modes = [
+        { id: 'modeSimpleBtn', key: 'simple' },
+        { id: 'modeCycleBtn', key: 'cycle' },
+        { id: 'modePaintBtn', key: 'paint' }
+      ];
+      modes.forEach((m) => {
+        const btn = document.getElementById(m.id);
+        if (!btn) return;
+        if (appSettings.interactionMode === m.key) {
+          btn.className = 'px-2.5 py-1 rounded-md font-bold transition-all bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-md font-medium transition-all text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white';
+        }
+      });
+    }
+
+    /**
+     * ペイントブラシの選択
+     */
+    function selectBrush(brushStatus) {
+      appSettings.selectedBrush = brushStatus;
+      appSettings.interactionMode = 'paint';
+      saveSettingsToStorage();
+      updateModeButtonsUI();
+      updateBrushButtonsUI();
+    }
+
+    function updateBrushButtonsUI() {
+      [0, 1, 2, 3].forEach((b) => {
+        const btn = document.getElementById(`brushBtn${b}`);
+        if (!btn) return;
+        if (appSettings.interactionMode === 'paint' && appSettings.selectedBrush === b) {
+          btn.className = 'brush-btn flex items-center gap-1 px-2 py-1 rounded-md font-bold bg-white dark:bg-zinc-700 border border-blue-500 shadow-xs text-zinc-900 dark:text-white transition-all';
+        } else {
+          btn.className = 'brush-btn flex items-center gap-1 px-2 py-1 rounded-md font-medium border border-transparent hover:bg-white/60 dark:hover:bg-zinc-700/60 text-zinc-700 dark:text-zinc-300 transition-all';
+        }
+      });
+    }
+
+    /**
+     * フィルタ切替
+     */
+    function setFilterMode(filter) {
+      appSettings.filterMode = filter;
+      saveSettingsToStorage();
+      refreshAllCellsAndStats();
+    }
+
+    /**
+     * 単元ごとのミニ達成率表示ON/OFF
+     */
+    function toggleChapterRateDisplay() {
+      appSettings.showChapterRate = !appSettings.showChapterRate;
+      saveSettingsToStorage();
+      updateChapterRateButtonUI();
+      refreshAllCellsAndStats();
+    }
+
+    function updateChapterRateButtonUI() {
+      const btn = document.getElementById('toggleChapRateBtn');
+      if (btn) {
+        btn.textContent = `単元率: ${appSettings.showChapterRate ? 'ON' : 'OFF'}`;
+      }
+    }
+
+    /**
+     * ライトモード / ダークモード切替
+     */
+    function toggleTheme() {
+      appSettings.darkMode = !appSettings.darkMode;
+      saveSettingsToStorage();
+      applyThemeUI();
+    }
+
+    function applyThemeUI() {
+      const root = document.documentElement;
+      if (appSettings.darkMode) {
+        root.classList.add('dark');
+        root.classList.remove('light');
+      } else {
+        root.classList.add('light');
+        root.classList.remove('dark');
+      }
+    }
+
+    /**
+     * 単元ヘッダークリックによる単元一括操作モーダル
+     */
+    function openChapterBatchModal(chapId) {
+      let foundChap = null;
+      workbookConfig.sections.forEach(s => {
+        s.chapters.forEach(c => {
+          if (c.id === chapId) foundChap = c;
+        });
+      });
+      if (!foundChap) return;
+
+      pendingBatchChapter = foundChap;
+      document.getElementById('batchModalTitle').textContent = foundChap.title;
+      document.getElementById('batchModalSub').textContent = `問題番号 ${foundChap.start} 〜 ${foundChap.end} を一括で変更します。`;
+      document.getElementById('chapterBatchModal').classList.remove('hidden');
+    }
+
+    function closeChapterBatchModal() {
+      pendingBatchChapter = null;
+      document.getElementById('chapterBatchModal').classList.add('hidden');
+    }
+
+    function applyChapterBatch(status) {
+      if (!pendingBatchChapter) return;
+      const start = parseInt(pendingBatchChapter.start, 10);
+      const end = parseInt(pendingBatchChapter.end, 10);
+      for (let num = start; num <= end; num++) {
+        if (status === 0) delete statusMap[num];
+        else statusMap[num] = status;
+      }
+      saveStateToStorage();
+      refreshAllCellsAndStats();
+      closeChapterBatchModal();
+      showToast('単元を一括更新しました');
+    }
+
+    /**
+     * 問題集カスタマイズモーダル処理
+     */
+    function openCustomizeModal() {
+      editingWorkbookTemp = JSON.parse(JSON.stringify(workbookConfig));
+      document.getElementById('editAppTitle').value = editingWorkbookTemp.title || '';
+      renderSectionsEditor();
+      document.getElementById('customizeModal').classList.remove('hidden');
+    }
+
+    function closeCustomizeModal() {
+      document.getElementById('customizeModal').classList.add('hidden');
+    }
+
+    function renderSectionsEditor() {
+      const container = document.getElementById('sectionsEditorContainer');
+      container.innerHTML = editingWorkbookTemp.sections.map((sec, sIdx) => `
+        <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/70 dark:bg-zinc-800/40 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2 flex-1">
+              <input type="text" value="${escapeHtml(sec.title)}" onchange="updateTempSection(${sIdx}, 'title', this.value)" placeholder="セクション名 (例: §1 理論化学)" class="px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 font-bold text-xs sm:text-sm w-48 sm:w-60">
+              <input type="text" value="${escapeHtml(sec.shortName || '')}" onchange="updateTempSection(${sIdx}, 'shortName', this.value)" placeholder="略称 (例: 理論)" class="px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-xs w-24">
+              <select onchange="updateTempSection(${sIdx}, 'column', this.value)" class="px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-xs">
+                <option value="left" ${sec.column === 'left' ? 'selected' : ''}>左カラム配置</option>
+                <option value="right" ${sec.column !== 'left' ? 'selected' : ''}>右カラム配置</option>
+              </select>
+            </div>
+            <button onclick="removeSectionInEditor(${sIdx})" class="text-xs text-red-600 hover:underline px-2 py-1">セクション削除</button>
+          </div>
+
+          <div class="space-y-1.5">
+            ${sec.chapters.map((chap, cIdx) => `
+              <div class="grid grid-cols-12 gap-2 items-center">
+                <input type="text" value="${escapeHtml(chap.title)}" onchange="updateTempChapter(${sIdx}, ${cIdx}, 'title', this.value)" placeholder="単元名" class="col-span-6 sm:col-span-7 px-2.5 py-1 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs">
+                <input type="number" value="${chap.start}" onchange="updateTempChapter(${sIdx}, ${cIdx}, 'start', this.value)" placeholder="開始" class="col-span-2 px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs text-center font-mono">
+                <input type="number" value="${chap.end}" onchange="updateTempChapter(${sIdx}, ${cIdx}, 'end', this.value)" placeholder="終了" class="col-span-2 px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs text-center font-mono">
+                <button onclick="removeChapterInEditor(${sIdx}, ${cIdx})" class="col-span-2 sm:col-span-1 text-xs text-zinc-400 hover:text-red-500 text-center">削除</button>
+              </div>
+            `).join('')}
+          </div>
+
+          <div>
+            <button onclick="addChapterInEditor(${sIdx})" class="text-xs text-blue-600 dark:text-blue-400 font-semibold hover:underline">＋ 単元を追加</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateTempSection(sIdx, field, val) {
+      editingWorkbookTemp.sections[sIdx][field] = val;
+    }
+
+    function updateTempChapter(sIdx, cIdx, field, val) {
+      if (field === 'start' || field === 'end') {
+        editingWorkbookTemp.sections[sIdx].chapters[cIdx][field] = parseInt(val, 10) || 1;
+      } else {
+        editingWorkbookTemp.sections[sIdx].chapters[cIdx][field] = val;
+      }
+    }
+
+    function addChapterInEditor(sIdx) {
+      const chaps = editingWorkbookTemp.sections[sIdx].chapters;
+      const lastEnd = chaps.length > 0 ? (parseInt(chaps[chaps.length - 1].end, 10) || 0) : 0;
+      chaps.push({
+        id: 'c_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+        title: `${chaps.length + 1} 新規単元`,
+        start: lastEnd + 1,
+        end: lastEnd + 10
+      });
+      renderSectionsEditor();
+    }
+
+    function removeChapterInEditor(sIdx, cIdx) {
+      editingWorkbookTemp.sections[sIdx].chapters.splice(cIdx, 1);
+      renderSectionsEditor();
+    }
+
+    function addSectionInEditor() {
+      editingWorkbookTemp.sections.push({
+        id: 'sec_' + Date.now(),
+        title: `§${editingWorkbookTemp.sections.length + 1} 新規セクション`,
+        shortName: `分野${editingWorkbookTemp.sections.length + 1}`,
+        column: 'right',
+        spacerBefore: true,
+        chapters: [
+          { id: 'c_' + Date.now(), title: '1 新規単元', start: 1, end: 20 }
+        ]
+      });
+      renderSectionsEditor();
+    }
+
+    function removeSectionInEditor(sIdx) {
+      editingWorkbookTemp.sections.splice(sIdx, 1);
+      renderSectionsEditor();
+    }
+
+    function resetStructureToDefault() {
+      editingWorkbookTemp = JSON.parse(JSON.stringify(DEFAULT_WORKBOOK));
+      document.getElementById('editAppTitle').value = editingWorkbookTemp.title;
+      renderSectionsEditor();
+      showToast('初期構成（化学 1〜383）を読み込みました');
+    }
+
+    function saveCustomizedStructure() {
+      editingWorkbookTemp.title = document.getElementById('editAppTitle').value.trim() || '問題集 進捗管理表';
+      workbookConfig = JSON.parse(JSON.stringify(editingWorkbookTemp));
+      saveConfigToStorage();
+      renderSheet();
+      closeCustomizeModal();
+      showToast('問題集の構成を更新しました');
+    }
+
+    /**
+     * データ保存・読込・リセットモーダル処理
+     */
+    function openDataModal() {
+      hideResetConfirm();
+      document.getElementById('dataModal').classList.remove('hidden');
+    }
+
+    function closeDataModal() {
+      document.getElementById('dataModal').classList.add('hidden');
+    }
+
+    function exportDataJson() {
+      const payload = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        workbookConfig,
+        statusMap
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `workbook_progress_${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('JSONファイルを書き出しました');
+    }
+
+    function importDataJson(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (parsed.workbookConfig && Array.isArray(parsed.workbookConfig.sections)) {
+            workbookConfig = parsed.workbookConfig;
+            saveConfigToStorage();
+          }
+          if (parsed.statusMap && typeof parsed.statusMap === 'object') {
+            statusMap = parsed.statusMap;
+            saveStateToStorage();
+          }
+          renderSheet();
+          closeDataModal();
+          showToast('バックアップデータを復元しました');
+        } catch (err) {
+          showToast('JSONファイルの形式が正しくありません');
+        }
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    function showResetConfirm() {
+      document.getElementById('resetConfirmArea').classList.add('hidden');
+      document.getElementById('resetConfirmStep2').classList.remove('hidden');
+    }
+
+    function hideResetConfirm() {
+      document.getElementById('resetConfirmArea').classList.remove('hidden');
+      document.getElementById('resetConfirmStep2').classList.add('hidden');
+    }
+
+    function executeResetProgress() {
+      statusMap = {};
+      saveStateToStorage();
+      refreshAllCellsAndStats();
+      hideResetConfirm();
+      closeDataModal();
+      showToast('すべての進捗をリセットしました');
+    }
+
+    /**
+     * ユーティリティ：トースト表示 & HTMLエスケープ
+     */
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById('toastNotice');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        el.classList.add('hidden');
+      }, 2600);
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
