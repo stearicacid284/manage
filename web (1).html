@@ -1,0 +1,1736 @@
+<!DOCTYPE html>
+<html lang="ja" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数学問題集 進捗管理トラッカー</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', 'Meiryo', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    /* カスタムスクロールバーとテーブルの微調整 */
+    body {
+      font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* 存在しない問題セルの斜線パターン（写真のグレーセルを忠実に再現＋視認性向上） */
+    .cell-disabled-light {
+      background-color: #e5e7eb;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.25),
+        rgba(255, 255, 255, 0.25) 6px,
+        transparent 6px,
+        transparent 12px
+      );
+    }
+    .dark .cell-disabled-dark {
+      background-color: #1e293b;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.03),
+        rgba(255, 255, 255, 0.03) 6px,
+        transparent 6px,
+        transparent 12px
+      );
+    }
+
+    /* セルアニメーション */
+    .problem-cell {
+      transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .problem-cell:active {
+      transform: scale(0.96);
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.95); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop {
+      animation: popIn 0.18s ease-out forwards;
+    }
+
+    /* ボタングループの重なり防止共通クラス */
+    .btn-group-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+  <!-- トースト通知コンテナ -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full px-4 pointer-events-none"></div>
+
+  <!-- ヘッダー -->
+  <header class="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 shrink-0">
+          <i class="fa-solid fa-table-cells-large text-lg"></i>
+        </div>
+        <div class="min-w-0">
+          <div class="btn-group-wrap">
+            <h1 class="text-base sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap">問題集 進捗管理表</h1>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap shrink-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              自動保存中
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">全7章・77題（1-1〜7-5）対応 / GitHub Pages データ永続化仕様</p>
+        </div>
+      </div>
+
+      <div class="btn-group-wrap shrink-0">
+        <!-- バックアップ / データ管理ボタン -->
+        <button id="openBackupModalBtn" type="button" class="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors border border-slate-200/80 dark:border-slate-700 whitespace-nowrap shrink-0">
+          <i class="fa-solid fa-shield-halved text-emerald-600 dark:text-emerald-400"></i>
+          <span>データ保護・移行</span>
+        </button>
+
+        <!-- ダークモード切替ボタン -->
+        <button id="themeToggleBtn" type="button" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-colors border border-slate-200/80 dark:border-slate-700 shrink-0" title="テーマ切り替え">
+          <i id="themeIcon" class="fa-solid fa-moon text-sm"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- 上段：到達度サマリー ＆ クイック入力パネル -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- 1. 到達度カード（写真の「到達度 36%」を再現・拡張） -->
+      <section class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200/90 dark:border-slate-800 flex flex-col justify-between gap-4">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 class="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100 whitespace-nowrap">
+              <i class="fa-solid fa-chart-pie text-emerald-500"></i>
+              <span>全体の到達度・章別進捗</span>
+            </h2>
+            <div class="btn-group-wrap text-xs text-slate-500 dark:text-slate-400">
+              <span id="datedCountBadge" class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-medium whitespace-nowrap">日付記録: 24題</span>
+              <span id="undatedCountBadge" class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 font-medium whitespace-nowrap">0/0完了: 4題</span>
+            </div>
+          </div>
+
+          <!-- メイン到達度ゲージ + スコアボックス -->
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center mb-5">
+            <!-- 写真の「到達度」ボックス風の強調表示 -->
+            <div class="sm:col-span-4 border-2 border-slate-700 dark:border-slate-600 rounded-xl overflow-hidden shadow-sm">
+              <div class="bg-slate-700 dark:bg-slate-800 text-white text-center py-1.5 text-xs font-bold tracking-widest">
+                到達度
+              </div>
+              <div class="bg-white dark:bg-slate-900 py-3 px-2 text-center">
+                <div class="flex items-baseline justify-center gap-0.5">
+                  <span id="totalPercentText" class="text-3xl sm:text-4xl font-extrabold font-mono text-slate-900 dark:text-white">36</span>
+                  <span class="text-lg font-bold text-slate-600 dark:text-slate-300">%</span>
+                </div>
+                <p id="totalFractionText" class="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
+                  28 / 77 題完了（残り 49 題）
+                </p>
+              </div>
+            </div>
+
+            <!-- プログレスバー＆統計ミニカード -->
+            <div class="sm:col-span-8 space-y-3">
+              <div>
+                <div class="flex justify-between text-xs font-medium mb-1">
+                  <span class="text-slate-600 dark:text-slate-300">全体進捗バー（全77題）</span>
+                  <span id="exactPercentText" class="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">36.4%</span>
+                </div>
+                <div class="w-full h-3.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700">
+                  <div id="mainProgressBar" class="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 transition-all duration-500" style="width: 36.4%"></div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2.5 pt-1">
+                <div class="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 border border-slate-200/60 dark:border-slate-800">
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">学習記録日数</div>
+                  <div class="text-base sm:text-lg font-bold font-mono text-slate-800 dark:text-slate-100 mt-0.5 whitespace-nowrap">
+                    <span id="statStudyDays">0</span><span class="text-xs font-normal ml-0.5">日</span>
+                  </div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 border border-slate-200/60 dark:border-slate-800">
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">実施日平均</div>
+                  <div class="text-base sm:text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5 whitespace-nowrap">
+                    <span id="statAvgPerDay">0.0</span><span class="text-xs font-normal ml-0.5">題/日</span>
+                  </div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 border border-slate-200/60 dark:border-slate-800">
+                  <div class="text-[11px] text-slate-500 dark:text-slate-400 truncate">1日最多記録</div>
+                  <div class="text-base sm:text-lg font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-0.5 whitespace-nowrap">
+                    <span id="statMaxPerDay">0</span><span class="text-xs font-normal ml-0.5">題</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 章ごとのミニ進捗バー（7章分） -->
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800">
+          <div class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2.5">各章の達成状況</div>
+          <div id="chapterMiniBars" class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2.5">
+            <!-- JSで動的生成 -->
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. クイック入力フォーム（プルダウン方式・ボタン重なり防止レイアウト） -->
+      <section class="lg:col-span-5 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm border border-slate-200/90 dark:border-slate-800 flex flex-col justify-between gap-4">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-2.5 mb-2">
+            <h2 class="text-base font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100 whitespace-nowrap">
+              <i class="fa-solid fa-pen-to-square text-emerald-500"></i>
+              <span>クイック進捗記録</span>
+            </h2>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none whitespace-nowrap shrink-0 border border-slate-200/70 dark:border-slate-700">
+              <input type="checkbox" id="filterIncompleteOnly" class="rounded text-emerald-600 focus:ring-emerald-500 dark:bg-slate-900 dark:border-slate-600" checked>
+              <span>未完了のみ表示</span>
+            </label>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+            プルダウンから問題番号を選んで記録できます。下のテーブルのマスを直接タップしても入力・変更可能です。
+          </p>
+
+          <form id="quickRecordForm" class="space-y-4">
+            <!-- 問題番号プルダウン -->
+            <div>
+              <label for="quickProblemSelect" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                1. 問題番号を選択
+              </label>
+              <select id="quickProblemSelect" class="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <!-- JSで生成 -->
+              </select>
+            </div>
+
+            <!-- 実施日入力 ＋ クイック日付ボタン（重ならないよう独立行で配置） -->
+            <div class="space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <label for="quickDateInput" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                  2. 実施日を指定
+                </label>
+                <div class="btn-group-wrap">
+                  <button type="button" id="setTodayBtn" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition-colors whitespace-nowrap shrink-0">
+                    今日
+                  </button>
+                  <button type="button" id="setYesterdayBtn" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors whitespace-nowrap shrink-0">
+                    昨日
+                  </button>
+                  <button type="button" id="setZeroDateBtn" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition-colors whitespace-nowrap shrink-0" title="日付不明の完了（0/0）として記録">
+                    0/0 (日付なし)
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                <div class="sm:col-span-7">
+                  <input type="date" id="quickDateInput" class="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 text-sm font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div class="sm:col-span-5">
+                  <label class="w-full h-11 px-3.5 rounded-xl border border-amber-200 dark:border-amber-800/80 bg-amber-50/70 dark:bg-amber-950/40 text-xs font-semibold text-amber-800 dark:text-amber-300 cursor-pointer select-none flex items-center justify-center gap-2 whitespace-nowrap">
+                    <input type="checkbox" id="quickZeroCheck" class="rounded text-amber-600 focus:ring-amber-500">
+                    <span>0/0で記録</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- 送信ボタン -->
+            <div class="pt-1">
+              <button type="submit" class="w-full h-11 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-sm shadow-sm shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all whitespace-nowrap">
+                <i class="fa-solid fa-check-circle"></i>
+                <span>この問題を完了として記録</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ヒントフッター -->
+        <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+          <span><i class="fa-solid fa-wand-magic-sparkles text-emerald-500 mr-1"></i>記録すると自動で次の未完了問題に移ります</span>
+        </div>
+      </section>
+    </div>
+
+    <!-- 中段：進捗管理テーブル（写真の構造を完全再現＋インタラクティブ化） -->
+    <section class="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200/90 dark:border-slate-800">
+      <!-- テーブル操作バー -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+            <i class="fa-solid fa-table text-emerald-500"></i>
+            <span>問題別 進捗管理テーブル</span>
+          </h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            白いマスが存在する問題（全77題：第4章は4-1〜4-15の15題）です。完了したマスには自動で色と実施日がつきます。
+          </p>
+        </div>
+
+        <!-- セルクリック動作モード切替（重なり防止） -->
+        <div class="btn-group-wrap">
+          <div class="btn-group-wrap rounded-xl p-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <button type="button" id="modeDetailBtn" class="px-3.5 py-2 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm whitespace-nowrap shrink-0">
+              <i class="fa-solid fa-sliders text-emerald-500"></i>
+              <span>詳細編集モード</span>
+            </button>
+            <button type="button" id="modeOneTapBtn" class="px-3.5 py-2 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white whitespace-nowrap shrink-0">
+              <i class="fa-solid fa-bolt text-amber-500"></i>
+              <span>ワンタップ記録モード</span>
+            </button>
+          </div>
+
+          <!-- ワンタップ時の適用日表示（ワンタップモード時に表示） -->
+          <div id="oneTapDateConfig" class="hidden flex-wrap items-center gap-2.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/80 px-3.5 py-2 rounded-xl text-xs">
+            <span class="font-semibold text-amber-800 dark:text-amber-300 whitespace-nowrap">適用日:</span>
+            <input type="date" id="oneTapDateInput" class="h-8 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg px-2.5 text-xs font-mono text-slate-800 dark:text-slate-100">
+            <label class="inline-flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-semibold cursor-pointer whitespace-nowrap">
+              <input type="checkbox" id="oneTapZeroCheck" class="rounded text-amber-600">
+              <span>0/0で記録</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- カラー凡例 -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3 text-xs">
+        <div class="btn-group-wrap">
+          <span class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+            <span class="w-4 h-4 rounded bg-emerald-100 dark:bg-emerald-900/70 border border-emerald-400 dark:border-emerald-600 inline-block shrink-0"></span>
+            <span>完了（日付あり）</span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+            <span class="w-4 h-4 rounded bg-amber-100 dark:bg-amber-900/60 border border-amber-400 dark:border-amber-600 inline-block shrink-0"></span>
+            <span>完了（0/0 日付不明）</span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+            <span class="w-4 h-4 rounded bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 inline-block shrink-0"></span>
+            <span>未完了の問題</span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+            <span class="w-4 h-4 rounded cell-disabled-light dark:cell-disabled-dark border border-slate-300 dark:border-slate-700 inline-block shrink-0"></span>
+            <span>問題なし（対象外）</span>
+          </span>
+        </div>
+        <div id="modeHelperText" class="text-slate-500 dark:text-slate-400 font-medium">
+          <i class="fa-regular fa-hand-pointer mr-1"></i>マスをタップすると日付の設定・変更ができます
+        </div>
+      </div>
+
+      <!-- テーブル本体（横スクロール対応） -->
+      <div class="overflow-x-auto rounded-xl border border-slate-300 dark:border-slate-700 shadow-inner">
+        <table class="progress-table w-full min-w-[740px] border-collapse table-fixed">
+          <thead>
+            <tr class="bg-slate-300/90 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs sm:text-sm font-bold">
+              <th class="w-12 sm:w-14 py-2.5 px-2 border border-slate-300 dark:border-slate-700 text-center bg-slate-300 dark:bg-slate-800 sticky left-0 z-10">
+                #
+              </th>
+              <th class="py-2.5 px-2 border border-slate-300 dark:border-slate-700 text-center whitespace-nowrap">
+                <div>1 極限</div>
+                <div id="colHeaderStat-1" class="text-[10px] font-normal text-slate-600 dark:text-slate-400 font-mono">0/12</div>
+              </th>
+              <th class="py-2.5 px-2 border border-slate-300 dark:border-slate-700 text-center whitespace-nowrap">
+                <div>2 微分</div>
+                <div id="colHeaderStat-2" class="text-[10px] font-normal text-slate-600 dark:text-slate-400 font-mono">0/9</div>
+              </th>
+              <th class="py-2.5 px-2 border border-slate-300 dark:border-slate-700 text-center whitespace-nowrap">
+                <div>3 積分</div>
+                <div id="colHeaderStat-3" class="text-[10px] font-normal text-slate-600 dark:text-slate-400 font-mono">0/15</div>
+              </th>
+              <th class="py-2.5 px-2 border border-slate-300 dark:border-slate-700 text-center whitespace-nowrap">
+                <div>4 求積</div>
+                <div id="colHeaderStat-4" class="text-[10px] font-normal text-slate-600 dark:text-slate-400 font-mono">0/15</div>
+              </th>
+              <th class="py-2.5 px-2 border border-slate-300 dark:border-slate-700 text-center whitespace-nowrap">
+                <div>5 曲線</div>
+                <div id="colHeaderStat-5" class="text-[10px] font-normal text-slate-600 dark:text-slate-400 font-mono">0/10</div>
+              </th>
+              <th class="py-2.5 px-2 border border-slate-300 dark:border-slate-700 text-center whitespace-nowrap">
+                <div>6 複素平面</div>
+                <div id="colHeaderStat-6" class="text-[10px] font-normal text-slate-600 dark:text-slate-400 font-mono">0/11</div>
+              </th>
+              <th class="py-2.5 px-2 border border-slate-300 dark:border-slate-700 text-center whitespace-nowrap">
+                <div>7 発展事項</div>
+                <div id="colHeaderStat-7" class="text-[10px] font-normal text-slate-600 dark:text-slate-400 font-mono">0/5</div>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="progressTableBody">
+            <!-- JSで1〜15行目を動的生成 -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 下段：1日に何問進んでいるかを視覚的に示す棒グラフ -->
+    <section class="bg-white dark:bg-slate-900 rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200/90 dark:border-slate-800">
+      <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-5">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold flex items-center gap-2 text-slate-800 dark:text-slate-100">
+            <i class="fa-solid fa-chart-column text-emerald-500"></i>
+            <span>日別進捗グラフ（1日に進んだ問題数の棒グラフ）</span>
+          </h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            実施日データから「1日に何題解いたか」を棒グラフで視覚的に表示します。棒にカーソルを合わせる（またはタップする）と解いた問題番号が表示されます。
+          </p>
+        </div>
+
+        <!-- グラフ表示オプション切り替え（重ならないボタングループ） -->
+        <div class="btn-group-wrap">
+          <!-- 期間軸の選択ピルボタン -->
+          <div class="btn-group-wrap bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700" role="group" aria-label="期間選択">
+            <button type="button" data-range="recorded_days" class="chart-range-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm">
+              実施日のみ
+            </button>
+            <button type="button" data-range="all_continuous" class="chart-range-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+              全期間（連続）
+            </button>
+            <button type="button" data-range="last_14" class="chart-range-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+              直近14日間
+            </button>
+            <button type="button" data-range="last_30" class="chart-range-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+              直近30日間
+            </button>
+          </div>
+
+          <!-- グラフ種別の選択ピルボタン（デフォルト：日別完了数の棒グラフ単体） -->
+          <div class="btn-group-wrap bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700" role="group" aria-label="グラフ種別選択">
+            <button type="button" data-chart-type="daily_only" class="chart-type-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm">
+              日別完了数（棒グラフ）
+            </button>
+            <button type="button" data-chart-type="with_cumulative" class="chart-type-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+              日別(棒)＋累計(線)
+            </button>
+          </div>
+
+          <!-- 内部状態管理用セレクト -->
+          <select id="chartRangeSelect" class="hidden">
+            <option value="recorded_days" selected>記録がある日のみ表示</option>
+            <option value="all_continuous">全期間</option>
+            <option value="last_14">直近14日間</option>
+            <option value="last_30">直近30日間</option>
+          </select>
+          <select id="chartTypeSelect" class="hidden">
+            <option value="daily_only" selected>1日あたりの完了問題数（棒グラフ）</option>
+            <option value="with_cumulative">1日あたりの問題数（棒）＋ 累計完了数（線）</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- グラフキャンバスコンテナ -->
+      <div class="relative w-full h-72 sm:h-80 bg-slate-50/50 dark:bg-slate-950/40 rounded-xl p-3 border border-slate-100 dark:border-slate-800/80">
+        <canvas id="dailyProgressChart"></canvas>
+      </div>
+
+      <!-- 日別ログ一覧チップ（直近の実施日と解いた問題） -->
+      <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <span class="text-xs font-bold text-slate-700 dark:text-slate-300">
+            <i class="fa-solid fa-clock-rotate-left text-emerald-500 mr-1"></i>日別の実施履歴（日付順）
+          </span>
+          <span class="text-[11px] text-slate-500 dark:text-slate-400">
+            ※「0/0（日付不明）」のデータは全体の到達度にはカウントされますが、日付別グラフからは除外されています。
+          </span>
+        </div>
+        <div id="dailyHistoryChips" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto py-1">
+          <!-- JSで生成 -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- フッター -->
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+    <p>数学問題集 進捗管理Webアプリ — ブラウザ内自動保存（localStorage）＆ バックアップ対応</p>
+  </footer>
+
+  <!-- ========================================== -->
+  <!-- モーダル1: セル詳細編集モーダル             -->
+  <!-- ========================================== -->
+  <div id="cellEditModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-sm w-full p-5 shadow-xl border border-slate-200 dark:border-slate-800 animate-pop">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span id="modalProblemBadge" class="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-mono font-bold text-sm shrink-0">1-1</span>
+          <h3 id="modalChapterTitle" class="font-bold text-slate-800 dark:text-slate-100 text-sm truncate">第1章「1 極限」</h3>
+        </div>
+        <button type="button" id="closeCellModalBtn" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="py-4 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">現在の状態</label>
+          <div id="modalCurrentStatus" class="text-xs font-medium px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+            未完了
+          </div>
+        </div>
+
+        <div>
+          <label for="modalDateInput" class="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
+            実施日を指定して記録
+          </label>
+          <input type="date" id="modalDateInput" class="w-full h-11 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3.5 text-sm font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          
+          <!-- クイック選択ボタン（重なり防止） -->
+          <div class="btn-group-wrap mt-3">
+            <button type="button" id="modalSetTodayBtn" class="flex-1 min-w-[90px] py-2 px-3 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 transition-colors whitespace-nowrap text-center">
+              今日の日付
+            </button>
+            <button type="button" id="modalSetYesterdayBtn" class="flex-1 min-w-[90px] py-2 px-3 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-colors whitespace-nowrap text-center">
+              昨日の日付
+            </button>
+            <button type="button" id="modalSaveZeroBtn" class="flex-1 min-w-[90px] py-2 px-3 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition-colors whitespace-nowrap text-center">
+              0/0 で完了
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 dark:border-slate-800 btn-group-wrap justify-between">
+        <button type="button" id="modalDeleteRecordBtn" class="h-10 px-3.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 transition-colors inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+          <i class="fa-regular fa-trash-can"></i>
+          <span>未完了に戻す</span>
+        </button>
+
+        <button type="button" id="modalSaveDateBtn" class="flex-1 min-w-[140px] h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-sm inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap">
+          <i class="fa-solid fa-check"></i>
+          <span>この日付で保存</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- モーダル2: データ保護・バックアップ管理       -->
+  <!-- ========================================== -->
+  <div id="backupModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-xl border border-slate-200 dark:border-slate-800 animate-pop my-8">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <i class="fa-solid fa-shield-halved text-emerald-500 text-lg shrink-0"></i>
+          <h3 class="font-bold text-slate-800 dark:text-slate-100 text-base truncate">データ保護・バックアップ・初期化</h3>
+        </div>
+        <button type="button" id="closeBackupModalBtn" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="py-4 space-y-5 text-xs sm:text-sm">
+        <!-- GitHub Pagesの説明 -->
+        <div class="p-3.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 text-emerald-900 dark:text-emerald-200 text-xs leading-relaxed">
+          <div class="font-bold mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400"></i>
+            <span>GitHub Pagesの更新でもデータは消えません</span>
+          </div>
+          進捗データはお使いのブラウザの <code class="font-mono bg-white/80 dark:bg-slate-900 px-1 py-0.5 rounded">localStorage</code> に即座に自動保存されます。ページの再読み込みや、GitHubリポジトリのコード更新を行ってもデータはそのまま維持されます。
+        </div>
+
+        <!-- 1. テキストコードによるコピー＆ペースト移行（iPad・スマホに最適） -->
+        <div class="space-y-2">
+          <h4 class="font-bold text-slate-800 dark:text-slate-100 text-xs sm:text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-copy text-indigo-500"></i>
+            <span>1. バックアップコードのコピー / 貼り付け復元（iPad・スマホ推奨）</span>
+          </h4>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            ファイルを使わずに、テキストコードだけでメモ帳やLINE等にバックアップ・別端末へ移行できます。
+          </p>
+          <div class="flex flex-wrap sm:flex-nowrap gap-2">
+            <input type="text" id="backupCodeInput" readonly class="flex-1 min-w-[180px] h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 text-xs font-mono text-slate-600 dark:text-slate-300 focus:outline-none" placeholder="ここにバックアップコードが表示されます">
+            <button type="button" id="copyBackupCodeBtn" class="px-3.5 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shrink-0 inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap w-full sm:w-auto">
+              <i class="fa-regular fa-copy"></i>
+              <span>コードをコピー</span>
+            </button>
+          </div>
+          <div class="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
+            <input type="text" id="restoreCodeInput" class="flex-1 min-w-[180px] h-9 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="復元するバックアップコードをここに貼り付け...">
+            <button type="button" id="applyRestoreCodeBtn" class="px-3.5 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold text-xs shrink-0 inline-flex items-center justify-center transition-colors whitespace-nowrap w-full sm:w-auto">
+              コードから復元
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. JSONファイルのエクスポート / インポート -->
+        <div class="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <h4 class="font-bold text-slate-800 dark:text-slate-100 text-xs sm:text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-file-code text-teal-500"></i>
+            <span>2. JSONファイルとして保存・読み込み</span>
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button type="button" id="exportJsonBtn" class="h-10 px-3 rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/60 dark:hover:bg-teal-900/60 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-800 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap">
+              <i class="fa-solid fa-download"></i>
+              <span>JSONファイルを保存</span>
+            </button>
+            <label class="h-10 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap">
+              <i class="fa-solid fa-upload"></i>
+              <span>JSONファイルを読込</span>
+              <input type="file" id="importJsonInput" accept=".json" class="hidden">
+            </label>
+          </div>
+        </div>
+
+        <!-- 3. 初期状態へのリセット -->
+        <div class="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <h4 class="font-bold text-slate-800 dark:text-slate-100 text-xs sm:text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate-left text-rose-500"></i>
+            <span>3. データのリセット</span>
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <button type="button" id="resetToPhotoBtn" class="h-10 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap">
+              <i class="fa-solid fa-camera-rotate"></i>
+              <span>写真の初期データに戻す</span>
+            </button>
+            <button type="button" id="clearAllDataBtn" class="h-10 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap">
+              <i class="fa-solid fa-trash"></i>
+              <span>すべて未完了（0%）にする</span>
+            </button>
+          </div>
+          <!-- リセット確認バー（インライン確認UI） -->
+          <div id="resetConfirmBar" class="hidden flex-wrap p-3 rounded-xl bg-rose-100 dark:bg-rose-950/90 border border-rose-300 dark:border-rose-800 items-center justify-between gap-2">
+            <span id="resetConfirmText" class="text-xs font-bold text-rose-900 dark:text-rose-200">本当にリセットしますか？</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" id="cancelResetBtn" class="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold whitespace-nowrap">キャンセル</button>
+              <button type="button" id="executeResetBtn" class="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold whitespace-nowrap">実行する</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- アプリケーションスクリプト -->
+  <script>
+    /**
+     * 1. 問題集の章構成データ（全77題）
+     * 第1章:12題, 第2章:9題, 第3章:15題, 第4章:15題, 第5章:10題, 第6章:11題, 第7章:5題 = 合計77題
+     */
+    const CHAPTERS = [
+      { id: 1, title: '1 極限', shortTitle: '極限', maxRow: 12 },
+      { id: 2, title: '2 微分', shortTitle: '微分', maxRow: 9 },
+      { id: 3, title: '3 積分', shortTitle: '積分', maxRow: 15 },
+      { id: 4, title: '4 求積', shortTitle: '求積', maxRow: 15 },
+      { id: 5, title: '5 曲線', shortTitle: '曲線', maxRow: 10 },
+      { id: 6, title: '6 複素平面', shortTitle: '複素平面', maxRow: 11 },
+      { id: 7, title: '7 発展事項', shortTitle: '発展事項', maxRow: 5 }
+    ];
+
+    const MAX_ROWS = 15;
+    const TOTAL_PROBLEMS = CHAPTERS.reduce((sum, ch) => sum + ch.maxRow, 0); // 77題
+    const STORAGE_KEY = 'math_workbook_progress_v1';
+    const THEME_KEY = 'math_workbook_theme_v1';
+
+    /**
+     * 2. 写真の初期進捗データ（基準年: 2026年）
+     */
+    const INITIAL_PHOTO_DATA = {
+      '1-1': '2026-08-01',
+      '1-2': '2026-08-01',
+      '1-3': '2026-08-01',
+      '1-4': '2026-08-01',
+      '1-5': '2026-08-01',
+      '1-6': '2026-08-16',
+      '1-8': '2026-10-12',
+      '1-9': '2026-10-12',
+      '1-10': '2026-10-13',
+      '2-1': '0/0',
+      '2-2': '0/0',
+      '3-1': '2026-10-29',
+      '3-2': '2026-10-30',
+      '3-3': '2026-10-31',
+      '3-4': '2026-10-31',
+      '3-5': '2026-11-01',
+      '3-6': '2026-11-01',
+      '3-7': '2026-11-01',
+      '3-8': '2026-11-01',
+      '3-9': '2026-11-01',
+      '3-10': '2026-11-02',
+      '3-11': '2026-11-03',
+      '3-12': '2026-11-03',
+      '3-13': '2026-11-03',
+      '3-14': '2026-11-03',
+      '3-15': '2026-11-04',
+      '6-1': '0/0',
+      '6-2': '0/0'
+    };
+
+    // アプリケーション状態
+    let progressData = {};
+    let interactionMode = 'detail'; // 'detail' | 'onetap'
+    let activeModalProblemKey = null;
+    let pendingResetType = null; // 'photo' | 'clear'
+    let chartInstance = null;
+
+    /**
+     * ユーティリティ: 今日・昨日のYYYY-MM-DD文字列を取得
+     */
+    function getFormattedDateOffset(daysOffset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + daysOffset);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    /**
+     * ユーティリティ: YYYY-MM-DD を写真の表記（M/D）に変換
+     */
+    function formatToMonthDay(val) {
+      if (!val) return '';
+      if (val === '0/0') return '0/0';
+      const parts = val.split('-');
+      if (parts.length === 3) {
+        return `${ parseInt(parts[1], 10) }/${ parseInt(parts[2], 10) }`;
+      }
+      return val;
+    }
+
+    /**
+     * ユーティリティ: 問題キーが有効な問題かどうか判定
+     */
+    function isValidProblemKey(key) {
+      const parts = key.split('-');
+      if (parts.length !== 2) return false;
+      const chId = parseInt(parts[0], 10);
+      const rowNum = parseInt(parts[1], 10);
+      const chapter = CHAPTERS.find(c => c.id === chId);
+      if (!chapter) return false;
+      return rowNum >= 1 && rowNum <= chapter.maxRow;
+    }
+
+    /**
+     * トースト通知を表示（alertの代替）
+     */
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const bgClass = type === 'success'
+        ? 'bg-slate-900 dark:bg-emerald-950 text-white border-emerald-500/40'
+        : type === 'warning'
+        ? 'bg-amber-900 text-white border-amber-500/40'
+        : 'bg-rose-900 text-white border-rose-500/40';
+
+      const iconClass = type === 'success'
+        ? 'fa-circle-check text-emerald-400'
+        : type === 'warning'
+        ? 'fa-circle-exclamation text-amber-400'
+        : 'fa-triangle-exclamation text-rose-400';
+
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs sm:text-sm font-medium transition-all duration-300 ${bgClass}`;
+      toast.innerHTML = `
+        <i class="fa-solid ${iconClass} text-base shrink-0"></i>
+        <span class="flex-1">${message}</span>
+      `;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 2600);
+    }
+
+    /**
+     * localStorageからデータを読み込み（初回は写真のプリセットを適用）
+     */
+    function loadProgressData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved === null) {
+          progressData = { ...INITIAL_PHOTO_DATA };
+          saveProgressData();
+        } else {
+          const parsed = JSON.parse(saved);
+          progressData = {};
+          if (parsed && typeof parsed === 'object') {
+            Object.keys(parsed).forEach(k => {
+              if (isValidProblemKey(k) && parsed[k]) {
+                progressData[k] = String(parsed[k]);
+              }
+            });
+          }
+        }
+      } catch (e) {
+        console.error('データ読み込みエラー:', e);
+        progressData = { ...INITIAL_PHOTO_DATA };
+      }
+    }
+
+    /**
+     * localStorageへデータを保存
+     */
+    function saveProgressData() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(progressData));
+        updateBackupCodeField();
+      } catch (e) {
+        console.error('データ保存エラー:', e);
+      }
+    }
+
+    /**
+     * バックアップ用テキストコードを更新
+     */
+    function updateBackupCodeField() {
+      const input = document.getElementById('backupCodeInput');
+      if (!input) return;
+      try {
+        const jsonStr = JSON.stringify(progressData);
+        const encoded = btoa(encodeURIComponent(jsonStr));
+        input.value = encoded;
+      } catch (e) {
+        input.value = JSON.stringify(progressData);
+      }
+    }
+
+    /**
+     * テーマ（ダークモード / ライトモード）の初期化と切り替え
+     */
+    function initTheme() {
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      const htmlEl = document.documentElement;
+      if (savedTheme === 'dark') {
+        htmlEl.classList.add('dark');
+        htmlEl.classList.remove('light');
+      } else {
+        htmlEl.classList.add('light');
+        htmlEl.classList.remove('dark');
+      }
+      updateThemeIcon();
+    }
+
+    function toggleTheme() {
+      const htmlEl = document.documentElement;
+      const isDark = htmlEl.classList.contains('dark');
+      if (isDark) {
+        htmlEl.classList.remove('dark');
+        htmlEl.classList.add('light');
+        localStorage.setItem(THEME_KEY, 'light');
+      } else {
+        htmlEl.classList.remove('light');
+        htmlEl.classList.add('dark');
+        localStorage.setItem(THEME_KEY, 'dark');
+      }
+      updateThemeIcon();
+      renderChart();
+    }
+
+    function updateThemeIcon() {
+      const icon = document.getElementById('themeIcon');
+      const isDark = document.documentElement.classList.contains('dark');
+      icon.className = isDark ? 'fa-solid fa-sun text-amber-400 text-sm' : 'fa-solid fa-moon text-slate-700 text-sm';
+    }
+
+    /**
+     * 進捗管理テーブル（15行×7列）の描画
+     */
+    function renderTable() {
+      const tbody = document.getElementById('progressTableBody');
+      tbody.innerHTML = '';
+
+      for (let row = 1; row <= MAX_ROWS; row++) {
+        const tr = document.createElement('tr');
+
+        // 左端の行番号セル
+        const thRow = document.createElement('td');
+        thRow.className = 'py-2 px-2 border border-slate-300 dark:border-slate-700 text-center font-bold text-xs sm:text-sm bg-slate-200/90 dark:bg-slate-800/90 text-slate-700 dark:text-slate-200 sticky left-0 z-10 font-mono';
+        thRow.textContent = row;
+        tr.appendChild(thRow);
+
+        // 第1章〜第7章のセル
+        CHAPTERS.forEach(ch => {
+          const td = document.createElement('td');
+          const problemKey = `${ch.id}-${row}`;
+          const isValid = row <= ch.maxRow;
+
+          if (!isValid) {
+            // 存在しない問題のグレーアウトセル
+            td.className = 'h-12 sm:h-13 border border-slate-300 dark:border-slate-800 cell-disabled-light dark:cell-disabled-dark';
+          } else {
+            const recordVal = progressData[problemKey];
+            const isCompleted = Boolean(recordVal);
+            const isZeroDate = recordVal === '0/0';
+
+            let cellColorClass = '';
+            let badgeColorClass = '';
+            let dateTextColorClass = '';
+
+            if (!isCompleted) {
+              // 未完了の白セル
+              cellColorClass = 'bg-white hover:bg-emerald-50/50 dark:bg-slate-900 dark:hover:bg-slate-800/80';
+              badgeColorClass = 'text-slate-400 dark:text-slate-500';
+              dateTextColorClass = 'text-slate-400';
+            } else if (isZeroDate) {
+              // 0/0（日付不明）完了セル
+              cellColorClass = 'bg-amber-100/90 hover:bg-amber-200/80 dark:bg-amber-950/70 dark:hover:bg-amber-900/70 ring-1 ring-inset ring-amber-300 dark:ring-amber-800';
+              badgeColorClass = 'text-amber-700 dark:text-amber-400';
+              dateTextColorClass = 'text-amber-900 dark:text-amber-200 font-bold';
+            } else {
+              // 通常の日付完了セル
+              cellColorClass = 'bg-emerald-100/90 hover:bg-emerald-200/80 dark:bg-emerald-950/75 dark:hover:bg-emerald-900/80 ring-1 ring-inset ring-emerald-300 dark:ring-emerald-800';
+              badgeColorClass = 'text-emerald-700 dark:text-emerald-400';
+              dateTextColorClass = 'text-emerald-950 dark:text-emerald-100 font-bold';
+            }
+
+            td.className = `problem-cell relative h-12 sm:h-13 border border-slate-300 dark:border-slate-700 px-1.5 py-1 cursor-pointer ${cellColorClass}`;
+            td.dataset.key = problemKey;
+
+            const displayDate = formatToMonthDay(recordVal);
+
+            td.innerHTML = `
+              <div class="flex flex-col justify-between h-full">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-mono font-semibold leading-none ${badgeColorClass}">${problemKey}</span>
+                  ${isCompleted ? `<i class="fa-solid fa-check text-[9px] ${isZeroDate ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}"></i>` : ''}
+                </div>
+                <div class="text-center font-mono text-xs sm:text-sm leading-tight truncate ${dateTextColorClass}">
+                  ${displayDate || '<span class="opacity-0 group-hover:opacity-40 text-[10px]">-</span>'}
+                </div>
+              </div>
+            `;
+
+            td.addEventListener('click', () => handleCellClick(problemKey));
+          }
+
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      }
+    }
+
+    /**
+     * 到達度カード＆章別ミニプログレスバーの更新
+     */
+    function renderStatsAndBars() {
+      const completedKeys = Object.keys(progressData).filter(k => isValidProblemKey(k) && progressData[k]);
+      const completedCount = completedKeys.length;
+      const undatedCount = completedKeys.filter(k => progressData[k] === '0/0').length;
+      const datedCount = completedCount - undatedCount;
+      const remainingCount = TOTAL_PROBLEMS - completedCount;
+
+      const exactPercent = (completedCount / TOTAL_PROBLEMS) * 100;
+      const roundedPercent = Math.round(exactPercent);
+
+      document.getElementById('totalPercentText').textContent = roundedPercent;
+      document.getElementById('exactPercentText').textContent = `${exactPercent.toFixed(1)}%`;
+      document.getElementById('totalFractionText').textContent = `${completedCount} / ${TOTAL_PROBLEMS} 題完了（残り ${remainingCount} 題）`;
+      document.getElementById('mainProgressBar').style.width = `${exactPercent.toFixed(1)}%`;
+
+      document.getElementById('datedCountBadge').textContent = `日付記録: ${datedCount}題`;
+      document.getElementById('undatedCountBadge').textContent = `0/0完了: ${undatedCount}題`;
+
+      // 日付ごとの集計
+      const dateCountsMap = {};
+      completedKeys.forEach(k => {
+        const val = progressData[k];
+        if (val && val !== '0/0') {
+          dateCountsMap[val] = (dateCountsMap[val] || 0) + 1;
+        }
+      });
+
+      const activeDates = Object.keys(dateCountsMap);
+      const studyDays = activeDates.length;
+      const avgPerDay = studyDays > 0 ? (datedCount / studyDays).toFixed(1) : '0.0';
+      const maxPerDay = studyDays > 0 ? Math.max(...Object.values(dateCountsMap)) : 0;
+
+      document.getElementById('statStudyDays').textContent = studyDays;
+      document.getElementById('statAvgPerDay').textContent = avgPerDay;
+      document.getElementById('statMaxPerDay').textContent = maxPerDay;
+
+      // 章別ミニバーとテーブルヘッダーの更新
+      const miniBarsContainer = document.getElementById('chapterMiniBars');
+      miniBarsContainer.innerHTML = '';
+
+      CHAPTERS.forEach(ch => {
+        let chCompleted = 0;
+        for (let r = 1; r <= ch.maxRow; r++) {
+          if (progressData[`${ch.id}-${r}`]) chCompleted++;
+        }
+        const chPercent = Math.round((chCompleted / ch.maxRow) * 100);
+        const isAllDone = chCompleted === ch.maxRow;
+
+        // テーブル列ヘッダーの小計を更新
+        const colStatEl = document.getElementById(`colHeaderStat-${ch.id}`);
+        if (colStatEl) {
+          colStatEl.textContent = `${chCompleted}/${ch.maxRow} (${chPercent}%)`;
+          colStatEl.className = isAllDone
+            ? 'text-[10px] font-bold text-emerald-700 dark:text-emerald-400 font-mono'
+            : 'text-[10px] font-normal text-slate-600 dark:text-slate-400 font-mono';
+        }
+
+        // ミニカード生成
+        const card = document.createElement('div');
+        card.className = `p-2 rounded-xl border text-xs ${
+          isAllDone
+            ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800'
+            : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-800'
+        }`;
+        card.innerHTML = `
+          <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-200 mb-1 truncate">
+            <span class="truncate">${ch.title}</span>
+            ${isAllDone ? '<i class="fa-solid fa-crown text-amber-500 text-[10px]"></i>' : ''}
+          </div>
+          <div class="flex items-baseline justify-between font-mono text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+            <span>${chCompleted}/${ch.maxRow}</span>
+            <span class="font-semibold ${isAllDone ? 'text-emerald-600 dark:text-emerald-400' : ''}">${chPercent}%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div class="h-full rounded-full ${isAllDone ? 'bg-emerald-500' : 'bg-teal-500'} transition-all duration-300" style="width: ${chPercent}%"></div>
+          </div>
+        `;
+        miniBarsContainer.appendChild(card);
+      });
+    }
+
+    /**
+     * クイック入力フォームのプルダウン選択肢を更新
+     */
+    function renderQuickSelectDropdown(preferredNextKey = null) {
+      const select = document.getElementById('quickProblemSelect');
+      const incompleteOnly = document.getElementById('filterIncompleteOnly').checked;
+      const currentVal = preferredNextKey || select.value;
+
+      select.innerHTML = '';
+      let totalOptionsAdded = 0;
+
+      CHAPTERS.forEach(ch => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = `第${ch.id}章：${ch.title}（全${ch.maxRow}問）`;
+
+        let groupAdded = 0;
+        for (let r = 1; r <= ch.maxRow; r++) {
+          const key = `${ch.id}-${r}`;
+          const val = progressData[key];
+          if (incompleteOnly && val) continue;
+
+          const option = document.createElement('option');
+          option.value = key;
+          option.textContent = val
+            ? `${key} （${ch.shortTitle}） — 完了済 [${formatToMonthDay(val)}]`
+            : `${key} （${ch.shortTitle}） — 未完了`;
+          optgroup.appendChild(option);
+          groupAdded++;
+          totalOptionsAdded++;
+        }
+
+        if (groupAdded > 0) {
+          select.appendChild(optgroup);
+        }
+      });
+
+      if (totalOptionsAdded === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '🎉 すべての問題が完了しています！（チェックを外すと全問題を表示）';
+        select.appendChild(option);
+      } else if (currentVal && Array.from(select.options).some(o => o.value === currentVal)) {
+        select.value = currentVal;
+      }
+    }
+
+    /**
+     * 指定した問題の「次の未完了問題」を探す
+     */
+    function findNextIncompleteKey(afterKey) {
+      const allKeys = [];
+      CHAPTERS.forEach(ch => {
+        for (let r = 1; r <= ch.maxRow; r++) {
+          allKeys.push(`${ch.id}-${r}`);
+        }
+      });
+      const startIndex = allKeys.indexOf(afterKey);
+      for (let i = 1; i <= allKeys.length; i++) {
+        const candidate = allKeys[(startIndex + i) % allKeys.length];
+        if (!progressData[candidate]) return candidate;
+      }
+      return null;
+    }
+
+    /**
+     * テーブルのセルをクリックした時の処理
+     */
+    function handleCellClick(problemKey) {
+      if (interactionMode === 'onetap') {
+        // ワンタップ記録モード
+        const currentVal = progressData[problemKey];
+        if (currentVal) {
+          delete progressData[problemKey];
+          saveProgressData();
+          refreshAllUI();
+          showToast(`問題 ${problemKey} を未完了に戻しました`, 'warning');
+        } else {
+          const isZero = document.getElementById('oneTapZeroCheck').checked;
+          const dateVal = isZero ? '0/0' : (document.getElementById('oneTapDateInput').value || getFormattedDateOffset(0));
+          progressData[problemKey] = dateVal;
+          saveProgressData();
+          refreshAllUI();
+          showToast(`問題 ${problemKey} を「${formatToMonthDay(dateVal)}」で完了にしました`);
+        }
+      } else {
+        // 詳細編集モード（モーダルを開く）
+        openCellEditModal(problemKey);
+      }
+    }
+
+    /**
+     * セル詳細編集モーダルを開く
+     */
+    function openCellEditModal(problemKey) {
+      activeModalProblemKey = problemKey;
+      const [chIdStr] = problemKey.split('-');
+      const chapter = CHAPTERS.find(c => c.id === parseInt(chIdStr, 10));
+      const currentVal = progressData[problemKey];
+
+      document.getElementById('modalProblemBadge').textContent = problemKey;
+      document.getElementById('modalChapterTitle').textContent = chapter ? `第${chapter.id}章「${chapter.title}」` : '';
+
+      const statusBox = document.getElementById('modalCurrentStatus');
+      const deleteBtn = document.getElementById('modalDeleteRecordBtn');
+      const dateInput = document.getElementById('modalDateInput');
+
+      if (!currentVal) {
+        statusBox.textContent = '現在：未完了';
+        statusBox.className = 'text-xs font-medium px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
+        deleteBtn.classList.add('opacity-40', 'pointer-events-none');
+        dateInput.value = document.getElementById('quickDateInput').value || getFormattedDateOffset(0);
+      } else if (currentVal === '0/0') {
+        statusBox.textContent = '現在：完了（0/0 日付不明）';
+        statusBox.className = 'text-xs font-bold px-3 py-2 rounded-xl bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300';
+        deleteBtn.classList.remove('opacity-40', 'pointer-events-none');
+        dateInput.value = getFormattedDateOffset(0);
+      } else {
+        statusBox.textContent = `現在：完了（実施日: ${currentVal} / 表示: ${formatToMonthDay(currentVal)}）`;
+        statusBox.className = 'text-xs font-bold px-3 py-2 rounded-xl bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300';
+        deleteBtn.classList.remove('opacity-40', 'pointer-events-none');
+        dateInput.value = currentVal;
+      }
+
+      const modal = document.getElementById('cellEditModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeCellEditModal() {
+      const modal = document.getElementById('cellEditModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      activeModalProblemKey = null;
+    }
+
+    /**
+     * 日別進捗折れ線グラフ（Chart.js）と日別履歴チップの描画
+     */
+    function renderChart() {
+      const rangeMode = document.getElementById('chartRangeSelect').value;
+      const chartType = document.getElementById('chartTypeSelect').value;
+
+      // 日付ごとの解いた問題リストを集計（0/0は除外）
+      const dateProblemsMap = {};
+      Object.keys(progressData).forEach(key => {
+        if (!isValidProblemKey(key)) return;
+        const val = progressData[key];
+        if (!val || val === '0/0') return;
+        if (!dateProblemsMap[val]) dateProblemsMap[val] = [];
+        dateProblemsMap[val].push(key);
+      });
+
+      // 問題番号を自然な順序でソート
+      Object.keys(dateProblemsMap).forEach(d => {
+        dateProblemsMap[d].sort((a, b) => {
+          const [ca, ra] = a.split('-').map(Number);
+          const [cb, rb] = b.split('-').map(Number);
+          return ca !== cb ? ca - cb : ra - rb;
+        });
+      });
+
+      const recordedDates = Object.keys(dateProblemsMap).sort();
+
+      // 日別履歴チップの描画
+      renderDailyHistoryChips(recordedDates, dateProblemsMap);
+
+      // グラフ用の日付配列を構築
+      let timelineDates = [];
+
+      if (recordedDates.length === 0) {
+        timelineDates = [getFormattedDateOffset(0)];
+      } else if (rangeMode === 'recorded_days') {
+        timelineDates = [...recordedDates];
+      } else if (rangeMode === 'all_continuous') {
+        const start = new Date(recordedDates[0] + 'T00:00:00');
+        const end = new Date(recordedDates[recordedDates.length - 1] + 'T00:00:00');
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          timelineDates.push(`${yyyy}-${mm}-${dd}`);
+        }
+      } else {
+        // 直近14日間 または 直近30日間（最新の記録日を基準にする）
+        const daysCount = rangeMode === 'last_14' ? 14 : 30;
+        const latestDateStr = recordedDates[recordedDates.length - 1];
+        const end = new Date(latestDateStr + 'T00:00:00');
+        const start = new Date(end);
+        start.setDate(start.getDate() - (daysCount - 1));
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          timelineDates.push(`${yyyy}-${mm}-${dd}`);
+        }
+      }
+
+      // 各日の完了数と累計完了数を計算
+      const labels = timelineDates.map(d => formatToMonthDay(d));
+      const dailyCounts = timelineDates.map(d => (dateProblemsMap[d] ? dateProblemsMap[d].length : 0));
+
+      // 累計計算（表示期間より前の完了分も初期値に加算）
+      const firstTimelineDate = timelineDates[0];
+      let runningTotal = 0;
+      recordedDates.forEach(d => {
+        if (d < firstTimelineDate) {
+          runningTotal += dateProblemsMap[d].length;
+        }
+      });
+
+      const cumulativeCounts = timelineDates.map(d => {
+        runningTotal += (dateProblemsMap[d] ? dateProblemsMap[d].length : 0);
+        return runningTotal;
+      });
+
+      const isDark = document.documentElement.classList.contains('dark');
+      const gridColor = isDark ? 'rgba(148, 163, 184, 0.12)' : 'rgba(148, 163, 184, 0.25)';
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+
+      const datasets = [
+        {
+          type: 'bar',
+          label: '1日あたりの完了問題数 (問)',
+          data: dailyCounts,
+          backgroundColor: isDark ? 'rgba(16, 185, 129, 0.78)' : 'rgba(16, 185, 129, 0.85)',
+          hoverBackgroundColor: '#059669',
+          borderColor: '#10b981',
+          borderWidth: 1,
+          borderRadius: 6,
+          maxBarThickness: 40,
+          yAxisID: 'y',
+          order: 2
+        }
+      ];
+
+      if (chartType === 'with_cumulative') {
+        datasets.push({
+          type: 'line',
+          label: '累計完了問題数 (日付記録分)',
+          data: cumulativeCounts,
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          borderWidth: 2.5,
+          pointBackgroundColor: '#6366f1',
+          pointBorderColor: isDark ? '#0f172a' : '#ffffff',
+          pointBorderWidth: 1.5,
+          pointRadius: timelineDates.length > 40 ? 2.5 : 4,
+          pointHoverRadius: 6,
+          tension: 0.25,
+          fill: false,
+          yAxisID: 'y1',
+          order: 1
+        });
+      }
+
+      const ctx = document.getElementById('dailyProgressChart').getContext('2d');
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                color: textColor,
+                font: { family: "'Noto Sans JP', sans-serif", size: 12, weight: '600' },
+                usePointStyle: true,
+                boxWidth: 8
+              }
+            },
+            tooltip: {
+              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(15, 23, 42, 0.92)',
+              titleFont: { family: "'Noto Sans JP', sans-serif", size: 13, weight: 'bold' },
+              bodyFont: { family: "'Noto Sans JP', sans-serif", size: 12 },
+              padding: 12,
+              cornerRadius: 10,
+              callbacks: {
+                title: (items) => {
+                  if (!items.length) return '';
+                  const idx = items[0].dataIndex;
+                  return `実施日: ${timelineDates[idx]} (${labels[idx]})`;
+                },
+                afterBody: (items) => {
+                  if (!items.length) return '';
+                  const idx = items[0].dataIndex;
+                  const dateKey = timelineDates[idx];
+                  const solvedList = dateProblemsMap[dateKey] || [];
+                  if (solvedList.length === 0) return '解いた問題: なし (0問)';
+                  return `解いた問題 (${solvedList.length}問): ${solvedList.join(', ')}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: gridColor },
+              ticks: {
+                color: textColor,
+                font: { family: "'JetBrains Mono', monospace", size: 11 },
+                maxRotation: 45
+              }
+            },
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              beginAtZero: true,
+              suggestedMax: 6,
+              grid: { color: gridColor },
+              ticks: {
+                stepSize: 1,
+                color: '#10b981',
+                font: { family: "'JetBrains Mono', monospace", size: 11, weight: 'bold' },
+                callback: (v) => `${v}問`
+              },
+              title: {
+                display: true,
+                text: '1日あたりの問題数（棒）',
+                color: '#10b981',
+                font: { size: 11, weight: 'bold' }
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: chartType === 'with_cumulative',
+              position: 'right',
+              beginAtZero: true,
+              suggestedMax: Math.max(30, runningTotal + 5),
+              grid: { drawOnChartArea: false },
+              ticks: {
+                color: '#6366f1',
+                font: { family: "'JetBrains Mono', monospace", size: 11 },
+                callback: (v) => `${v}問`
+              },
+              title: {
+                display: chartType === 'with_cumulative',
+                text: '累計問題数（折れ線）',
+                color: '#6366f1',
+                font: { size: 11, weight: 'bold' }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    /**
+     * グラフ下部の「日別の実施履歴チップ」を描画
+     */
+    function renderDailyHistoryChips(recordedDates, dateProblemsMap) {
+      const container = document.getElementById('dailyHistoryChips');
+      container.innerHTML = '';
+
+      if (recordedDates.length === 0) {
+        container.innerHTML = `<span class="text-xs text-slate-400">日付付きの完了記録がまだありません</span>`;
+        return;
+      }
+
+      // 新しい日付順に表示
+      [...recordedDates].reverse().forEach(dateStr => {
+        const list = dateProblemsMap[dateStr];
+        const chip = document.createElement('div');
+        chip.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs';
+        chip.innerHTML = `
+          <span class="font-mono font-bold text-emerald-700 dark:text-emerald-400">${formatToMonthDay(dateStr)}</span>
+          <span class="px-1.5 py-0.2 rounded bg-emerald-600 text-white font-mono font-bold text-[10px]">${list.length}問</span>
+          <span class="text-slate-600 dark:text-slate-300 font-mono text-[11px]">${list.join(', ')}</span>
+        `;
+        container.appendChild(chip);
+      });
+    }
+
+    /**
+     * UI全体を一括更新
+     */
+    function refreshAllUI(preferredNextProblem = null) {
+      renderTable();
+      renderStatsAndBars();
+      renderQuickSelectDropdown(preferredNextProblem);
+      renderChart();
+    }
+
+    /**
+     * イベントリスナーの登録と初期化
+     */
+    window.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      loadProgressData();
+
+      // デフォルト日付をセット（今日）
+      const todayStr = getFormattedDateOffset(0);
+      document.getElementById('quickDateInput').value = todayStr;
+      document.getElementById('oneTapDateInput').value = todayStr;
+
+      refreshAllUI();
+
+      // テーマ切り替えボタン
+      document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
+
+      // クイック入力フォーム：未完了のみ表示フィルタ
+      document.getElementById('filterIncompleteOnly').addEventListener('change', () => {
+        renderQuickSelectDropdown();
+      });
+
+      // クイック入力フォーム：今日・昨日・0/0ボタン
+      const quickDateInput = document.getElementById('quickDateInput');
+      const quickZeroCheck = document.getElementById('quickZeroCheck');
+
+      document.getElementById('setTodayBtn').addEventListener('click', () => {
+        quickZeroCheck.checked = false;
+        quickDateInput.disabled = false;
+        quickDateInput.value = getFormattedDateOffset(0);
+      });
+
+      document.getElementById('setYesterdayBtn').addEventListener('click', () => {
+        quickZeroCheck.checked = false;
+        quickDateInput.disabled = false;
+        quickDateInput.value = getFormattedDateOffset(-1);
+      });
+
+      document.getElementById('setZeroDateBtn').addEventListener('click', () => {
+        quickZeroCheck.checked = true;
+        quickDateInput.disabled = true;
+      });
+
+      quickZeroCheck.addEventListener('change', (e) => {
+        quickDateInput.disabled = e.target.checked;
+      });
+
+      // クイック入力フォーム送信
+      document.getElementById('quickRecordForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const problemKey = document.getElementById('quickProblemSelect').value;
+        if (!problemKey) {
+          showToast('記録する問題を選択してください', 'warning');
+          return;
+        }
+        const isZero = quickZeroCheck.checked;
+        const dateVal = isZero ? '0/0' : (quickDateInput.value || getFormattedDateOffset(0));
+
+        progressData[problemKey] = dateVal;
+        saveProgressData();
+
+        const nextKey = findNextIncompleteKey(problemKey);
+        refreshAllUI(nextKey);
+        showToast(`問題 ${problemKey} を「${formatToMonthDay(dateVal)}」として記録しました`);
+      });
+
+      // モード切替（詳細編集モード vs ワンタップ記録モード）
+      const modeDetailBtn = document.getElementById('modeDetailBtn');
+      const modeOneTapBtn = document.getElementById('modeOneTapBtn');
+      const oneTapDateConfig = document.getElementById('oneTapDateConfig');
+      const modeHelperText = document.getElementById('modeHelperText');
+
+      modeDetailBtn.addEventListener('click', () => {
+        interactionMode = 'detail';
+        modeDetailBtn.className = 'px-3.5 py-2 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm whitespace-nowrap shrink-0';
+        modeOneTapBtn.className = 'px-3.5 py-2 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white whitespace-nowrap shrink-0';
+        oneTapDateConfig.classList.add('hidden');
+        oneTapDateConfig.classList.remove('flex');
+        modeHelperText.innerHTML = '<i class="fa-regular fa-hand-pointer mr-1"></i>マスをタップすると日付の設定・変更ができます';
+      });
+
+      modeOneTapBtn.addEventListener('click', () => {
+        interactionMode = 'onetap';
+        modeOneTapBtn.className = 'px-3.5 py-2 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm whitespace-nowrap shrink-0';
+        modeDetailBtn.className = 'px-3.5 py-2 rounded-lg text-xs font-bold transition-all inline-flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white whitespace-nowrap shrink-0';
+        oneTapDateConfig.classList.remove('hidden');
+        oneTapDateConfig.classList.add('flex');
+        modeHelperText.innerHTML = '<i class="fa-solid fa-bolt text-amber-500 mr-1"></i>マスをタップすると即座に完了/未完了を切り替えます';
+      });
+
+      // セル詳細編集モーダルの操作
+      document.getElementById('closeCellModalBtn').addEventListener('click', closeCellEditModal);
+      document.getElementById('cellEditModal').addEventListener('click', (e) => {
+        if (e.target.id === 'cellEditModal') closeCellEditModal();
+      });
+
+      document.getElementById('modalSetTodayBtn').addEventListener('click', () => {
+        document.getElementById('modalDateInput').value = getFormattedDateOffset(0);
+      });
+
+      document.getElementById('modalSetYesterdayBtn').addEventListener('click', () => {
+        document.getElementById('modalDateInput').value = getFormattedDateOffset(-1);
+      });
+
+      document.getElementById('modalSaveZeroBtn').addEventListener('click', () => {
+        if (!activeModalProblemKey) return;
+        const key = activeModalProblemKey;
+        progressData[key] = '0/0';
+        saveProgressData();
+        refreshAllUI();
+        closeCellEditModal();
+        showToast(`問題 ${key} を「0/0（日付不明）」で完了にしました`);
+      });
+
+      document.getElementById('modalSaveDateBtn').addEventListener('click', () => {
+        if (!activeModalProblemKey) return;
+        const key = activeModalProblemKey;
+        const val = document.getElementById('modalDateInput').value || getFormattedDateOffset(0);
+        progressData[key] = val;
+        saveProgressData();
+        refreshAllUI();
+        closeCellEditModal();
+        showToast(`問題 ${key} を「${formatToMonthDay(val)}」で保存しました`);
+      });
+
+      document.getElementById('modalDeleteRecordBtn').addEventListener('click', () => {
+        if (!activeModalProblemKey) return;
+        const key = activeModalProblemKey;
+        delete progressData[key];
+        saveProgressData();
+        refreshAllUI();
+        closeCellEditModal();
+        showToast(`問題 ${key} を未完了に戻しました`, 'warning');
+      });
+
+      // グラフ設定変更イベント（ピル型ボタン ＆ セレクト連動）
+      const rangeButtons = document.querySelectorAll('.chart-range-btn');
+      const typeButtons = document.querySelectorAll('.chart-type-btn');
+      const chartRangeSelect = document.getElementById('chartRangeSelect');
+      const chartTypeSelect = document.getElementById('chartTypeSelect');
+
+      function updatePillButtonStyles(buttons, activeVal, attrName) {
+        buttons.forEach(btn => {
+          const isSelected = btn.getAttribute(attrName) === activeVal;
+          const baseClass = btn.classList.contains('chart-range-btn') ? 'chart-range-btn' : 'chart-type-btn';
+          btn.className = isSelected
+            ? `${baseClass} px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm`
+            : `${baseClass} px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white`;
+        });
+      }
+
+      rangeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-range');
+          chartRangeSelect.value = val;
+          updatePillButtonStyles(rangeButtons, val, 'data-range');
+          renderChart();
+        });
+      });
+
+      typeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const val = btn.getAttribute('data-chart-type');
+          chartTypeSelect.value = val;
+          updatePillButtonStyles(typeButtons, val, 'data-chart-type');
+          renderChart();
+        });
+      });
+
+      chartRangeSelect.addEventListener('change', renderChart);
+      chartTypeSelect.addEventListener('change', renderChart);
+
+      // バックアップ・データ管理モーダル開閉
+      const backupModal = document.getElementById('backupModal');
+      document.getElementById('openBackupModalBtn').addEventListener('click', () => {
+        updateBackupCodeField();
+        document.getElementById('resetConfirmBar').classList.add('hidden');
+        backupModal.classList.remove('hidden');
+        backupModal.classList.add('flex');
+      });
+
+      document.getElementById('closeBackupModalBtn').addEventListener('click', () => {
+        backupModal.classList.add('hidden');
+        backupModal.classList.remove('flex');
+      });
+
+      backupModal.addEventListener('click', (e) => {
+        if (e.target.id === 'backupModal') {
+          backupModal.classList.add('hidden');
+          backupModal.classList.remove('flex');
+        }
+      });
+
+      // バックアップコードのコピー（document.execCommand('copy')対応）
+      document.getElementById('copyBackupCodeBtn').addEventListener('click', () => {
+        const codeInput = document.getElementById('backupCodeInput');
+        codeInput.select();
+        codeInput.setSelectionRange(0, 99999);
+        try {
+          document.execCommand('copy');
+          showToast('バックアップコードをクリップボードにコピーしました');
+        } catch (err) {
+          showToast('コピーに失敗しました。手動で選択してコピーしてください', 'error');
+        }
+      });
+
+      // バックアップコードからの復元
+      document.getElementById('applyRestoreCodeBtn').addEventListener('click', () => {
+        const raw = document.getElementById('restoreCodeInput').value.trim();
+        if (!raw) {
+          showToast('復元するバックアップコードを貼り付けてください', 'warning');
+          return;
+        }
+        try {
+          let parsed;
+          if (raw.startsWith('{')) {
+            parsed = JSON.parse(raw);
+          } else {
+            const decoded = decodeURIComponent(atob(raw));
+            parsed = JSON.parse(decoded);
+          }
+          if (!parsed || typeof parsed !== 'object') throw new Error('Invalid format');
+
+          const newProgress = {};
+          Object.keys(parsed).forEach(k => {
+            if (isValidProblemKey(k) && parsed[k]) {
+              newProgress[k] = String(parsed[k]);
+            }
+          });
+          progressData = newProgress;
+          saveProgressData();
+          refreshAllUI();
+          document.getElementById('restoreCodeInput').value = '';
+          showToast('バックアップコードから進捗データを復元しました！');
+        } catch (e) {
+          showToast('コードの形式が正しくありません。正しいコードか確認してください', 'error');
+        }
+      });
+
+      // JSONファイルのエクスポート
+      document.getElementById('exportJsonBtn').addEventListener('click', () => {
+        const dataStr = JSON.stringify(progressData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `math_workbook_progress_${getFormattedDateOffset(0)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('JSONバックアップファイルを保存しました');
+      });
+
+      // JSONファイルのインポート
+      document.getElementById('importJsonInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const parsed = JSON.parse(evt.target.result);
+            const newProgress = {};
+            Object.keys(parsed).forEach(k => {
+              if (isValidProblemKey(k) && parsed[k]) {
+                newProgress[k] = String(parsed[k]);
+              }
+            });
+            progressData = newProgress;
+            saveProgressData();
+            refreshAllUI();
+            showToast('JSONファイルから進捗データを読み込みました！');
+          } catch (err) {
+            showToast('JSONファイルの読み込みに失敗しました', 'error');
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+      });
+
+      // リセット確認UI（写真の初期状態に戻す / 全消去）
+      const resetConfirmBar = document.getElementById('resetConfirmBar');
+      const resetConfirmText = document.getElementById('resetConfirmText');
+
+      document.getElementById('resetToPhotoBtn').addEventListener('click', () => {
+        pendingResetType = 'photo';
+        resetConfirmText.textContent = '写真の初期データ状態（28問完了）に戻しますか？';
+        resetConfirmBar.classList.remove('hidden');
+        resetConfirmBar.classList.add('flex');
+      });
+
+      document.getElementById('clearAllDataBtn').addEventListener('click', () => {
+        pendingResetType = 'clear';
+        resetConfirmText.textContent = 'すべての記録を未完了（0%）にリセットしますか？';
+        resetConfirmBar.classList.remove('hidden');
+        resetConfirmBar.classList.add('flex');
+      });
+
+      document.getElementById('cancelResetBtn').addEventListener('click', () => {
+        pendingResetType = null;
+        resetConfirmBar.classList.add('hidden');
+        resetConfirmBar.classList.remove('flex');
+      });
+
+      document.getElementById('executeResetBtn').addEventListener('click', () => {
+        if (pendingResetType === 'photo') {
+          progressData = { ...INITIAL_PHOTO_DATA };
+          saveProgressData();
+          refreshAllUI();
+          showToast('写真の初期進捗データにリセットしました');
+        } else if (pendingResetType === 'clear') {
+          progressData = {};
+          saveProgressData();
+          refreshAllUI();
+          showToast('すべての問題を未完了（0%）にリセットしました', 'warning');
+        }
+        pendingResetType = null;
+        resetConfirmBar.classList.add('hidden');
+        resetConfirmBar.classList.remove('flex');
+      });
+    });
+  </script>
+</body>
+</html>
